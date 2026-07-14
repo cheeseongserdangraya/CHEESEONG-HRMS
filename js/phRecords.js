@@ -72,7 +72,12 @@ function renderPhSelectedTable(){
   var container = document.getElementById('ph-selected-table');
   if(ids.length===0){ container.innerHTML = '<div class="empty-state">还没有勾选员工</div>'; return; }
   var rows = ids.map(function(id){ return employees.find(function(e){ return e.id===id; }); }).filter(Boolean);
-  rows.sort(function(a,b){ return (a.company||'').localeCompare(b.company||'') || (a.nameEn||'').localeCompare(b.nameEn||''); });
+  rows.sort(function(a,b){
+    var ca = PH_COMPANY_ORDER[a.company]!==undefined ? PH_COMPANY_ORDER[a.company] : 99;
+    var cb = PH_COMPANY_ORDER[b.company]!==undefined ? PH_COMPANY_ORDER[b.company] : 99;
+    if(ca!==cb) return ca-cb;
+    return (a.nameEn||'').localeCompare(b.nameEn||'');
+  });
 
   var html = '<table class="pay-table"><tr><th>公司</th><th>姓名</th><th>换钱</th><th>换假期</th></tr>';
   rows.forEach(function(e){
@@ -136,8 +141,18 @@ function renderPhHistory(){
     var okM = !fm || r.batchMonth===fm;
     return okC && okM;
   });
+
+  renderPhHistorySummary(list);
+
   var container = document.getElementById('ph-history-list');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无记录</div>'; return; }
+
+  function empSortKey(id){
+    var e = employees.find(function(x){ return x.id===id; });
+    var c = e ? (PH_COMPANY_ORDER[e.company]!==undefined ? PH_COMPANY_ORDER[e.company] : 99) : 99;
+    var n = e ? (e.nameEn||'') : '';
+    return { c:c, n:n };
+  }
 
   var byBatch = {};
   var order = [];
@@ -148,9 +163,14 @@ function renderPhHistory(){
   });
   order.sort(function(a,b){ return byBatch[b].batchMonth.localeCompare(byBatch[a].batchMonth); });
 
-  var html = '';
+  var html = '<details><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 0;">📋 查看明细(照批次列出,点开才看得到)</summary>';
   order.forEach(function(key){
     var g = byBatch[key];
+    g.records.sort(function(a,b){
+      var ka = empSortKey(a.employeeId), kb = empSortKey(b.employeeId);
+      if(ka.c!==kb.c) return ka.c-kb.c;
+      return ka.n.localeCompare(kb.n);
+    });
     html += '<div class="card">';
     html += '<p style="font-weight:600;font-size:14px;margin:0 0 10px;">'+esc(g.batchMonth)+(g.description?' · '+esc(g.description):'')+'</p>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
@@ -168,6 +188,42 @@ function renderPhHistory(){
     });
     html += '</table></div>';
   });
+  html += '</details>';
+  container.innerHTML = html;
+}
+
+function renderPhHistorySummary(list){
+  var container = document.getElementById('ph-history-summary');
+  if(list.length===0){ container.innerHTML = ''; return; }
+
+  var byEmp = {};
+  var order = [];
+  list.forEach(function(r){
+    if(!byEmp[r.employeeId]){ byEmp[r.employeeId] = { cash:0, leave:0 }; order.push(r.employeeId); }
+    byEmp[r.employeeId][r.choice==='cash' ? 'cash' : 'leave'] += Number(r.days)||0;
+  });
+  order.sort(function(a,b){
+    var ea = employees.find(function(e){ return e.id===a; });
+    var eb = employees.find(function(e){ return e.id===b; });
+    var ca = ea ? (PH_COMPANY_ORDER[ea.company]!==undefined ? PH_COMPANY_ORDER[ea.company] : 99) : 99;
+    var cb = eb ? (PH_COMPANY_ORDER[eb.company]!==undefined ? PH_COMPANY_ORDER[eb.company] : 99) : 99;
+    if(ca!==cb) return ca-cb;
+    return (ea?ea.nameEn||'':'').localeCompare(eb?eb.nameEn||'':'');
+  });
+
+  var html = '<p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">📊 汇总(依目前筛选的公司/年月加总)</p>';
+  html += '<table class="pay-table"><tr><th>公司</th><th>姓名</th><th>换钱合计</th><th>换假期合计</th></tr>';
+  order.forEach(function(id){
+    var e = employees.find(function(x){ return x.id===id; });
+    var s = byEmp[id];
+    html += '<tr>'
+      + '<td>'+esc(e?e.company:'-')+'</td>'
+      + '<td style="font-weight:500;white-space:nowrap;">'+(e ? esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'') : '(已删除员工)')+'</td>'
+      + '<td style="color:var(--accent);font-weight:500;">'+round2(s.cash)+' 天</td>'
+      + '<td style="color:var(--success);font-weight:500;">'+round2(s.leave)+' 天</td>'
+      + '</tr>';
+  });
+  html += '</table>';
   container.innerHTML = html;
 }
 
