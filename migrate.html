@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRSTONE HRMS · 旧数据搬迁工具</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/utils.js"></script>
+</head>
+<body>
+<div class="wrap" style="max-width:720px;">
+  <h1>旧数据搬迁工具</h1>
+  <p class="subtitle">只用一次:把旧版 FIRSTONE_HRMS.html(localStorage 版)导出的 JSON 备份,搬到这个 Supabase 数据库。只有 admin 账号能用。搬完之后这个页面可以留着不管,不影响系统。</p>
+
+  <div class="card">
+    <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">1. 选择备份文件</p>
+    <p style="font-size:12px;color:var(--text-secondary);">在旧版 HTML 工具里点右上角「导出备份 (JSON)」下载的那个文件,例如 firstone_hrms_backup_2026-07-14.json</p>
+    <input type="file" id="mig-file" accept=".json" />
+  </div>
+
+  <div class="card">
+    <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">2. 确认无误后开始搬迁</p>
+    <p style="font-size:12px;color:var(--danger);">⚠️ 这个操作只应该做一次。重复执行会把同一批员工/记录重复插入一遍(变成两份)。如果不确定,先去 Supabase Table Editor 检查 employees 表是不是空的。</p>
+    <button id="mig-btn" onclick="runMigration()" disabled>开始搬迁</button>
+    <span class="msg" id="mig-status"></span>
+  </div>
+
+  <div class="card">
+    <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">进度日志</p>
+    <pre id="mig-log" style="white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-radius:8px;padding:12px;max-height:400px;overflow:auto;"></pre>
+  </div>
+</div>
+
+<script>
+var backupData = null;
+
+(async function(){
+  var profile = await requireAuth();
+  if(!profile) return;
+  if(!isAdmin()){
+    document.body.innerHTML = '<div class="wrap"><div class="card"><p>只有 admin 账号能用这个工具。</p></div></div>';
+    return;
+  }
+})();
+
+document.getElementById('mig-file').addEventListener('change', function(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      backupData = JSON.parse(ev.target.result);
+      document.getElementById('mig-btn').disabled = false;
+      log('已读取备份文件,导出时间:' + (backupData.exportedAt||'未知') + ',员工数:' + (backupData.employees||[]).length);
+    }catch(err){
+      log('文件解析失败:' + err.message);
+      backupData = null;
+      document.getElementById('mig-btn').disabled = true;
+    }
+  };
+  reader.readAsText(file);
+});
+
+function log(msg){
+  var el = document.getElementById('mig-log');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+var COMPANIES = ['FIRSTONE','CS FIRSTONE','TONGPOPO'];
+function parsePayrollKey(key){
+  // key 格式: firstone_payroll_{company去空格}_{YYYY-MM}
+  var rest = key.replace(/^firstone_payroll_/, '');
+  var month = rest.slice(-7);
+  if(!/^\d{4}-\d{2}$/.test(month)) return null;
+  var squashed = rest.slice(0, rest.length - 8); // 去掉 '_YYYY-MM'
+  var company = COMPANIES.find(function(c){ return c.replace(/\s+/g,'')===squashed; });
+  if(!company) return null;
+  return { company: company, month: month };
+}
+
+async function runMigration(){
+  if(!backupData) return;
+  document.getElementById('mig-btn').disabled = true;
+  var idMap = {}; // 旧 employeeId -> 新 uuid
+
+  log('--- 开始搬迁 ---');
+
+  // 1. employees
+  var oldEmployees = backupData.employees || [];
+  for(var i=0;i<oldEmployees.length;i++){
+    var oe = oldEmployees[i];
+    var data = {};
+    Object.keys(EMP_FIELD_MAP).forEach(function(k){ data[k] = oe[k]; });
+    data.status = oe.status || '在职';
+    var row = objToRow(EMP_FIELD_MAP, data);
+    var { data: inserted, error } = await sb.from('employees').insert(row).select().single();
+    if(error){ log('❌ 员工 '+(oe.nameEn||oe.nameCn||i)+' 插入失败:'+error.message); continue; }
+    idMap[oe.id] = inserted.id;
+    log('✅ 员工 ' + (oe.nameEn||oe.nameCn) + ' 已搬迁');
+  }
+
+  // 2. mc_claims
+  var claims = backupData.mcClaims || [];
+  for(var i=0;i<claims.length;i++){
+    var c = claims[i];
+    if(!idMap[c.employeeId]) { log('⚠️ 跳过一笔医药报销(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[c.employeeId], company: c.company, date: c.date, billAmount: c.billAmount, claimAmount: c.claimAmount, clinic: c.clinic, receipt: c.receipt, notes: c.notes };
+    var { error } = await sb.from('mc_claims').insert(objToRow(MC_FIELD_MAP, data));
+    if(error) log('❌ 医药报销记录插入失败:' + error.message);
+  }
+  log('✅ 医药报销记录搬迁完成,共 ' + claims.length + ' 笔');
+
+  // 3. loan_records
+  var loans = backupData.loanRecords || [];
+  for(var i=0;i<loans.length;i++){
+    var r = loans[i];
+    if(!idMap[r.employeeId]) { log('⚠️ 跳过一笔借支记录(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[r.employeeId], company: r.company, type: r.type, date: r.date, amount: r.amount, notes: r.notes };
+    var { error } = await sb.from('loan_records').insert(objToRow(LOAN_FIELD_MAP, data));
+    if(error) log('❌ 借支记录插入失败:' + error.message);
+  }
+  log('✅ 借支记录搬迁完成,共 ' + loans.length + ' 笔');
+
+  // 4. attendance_late / attendance_ot
+  var lates = backupData.lateRecords || [];
+  for(var i=0;i<lates.length;i++){
+    var r = lates[i];
+    if(!idMap[r.employeeId]) { log('⚠️ 跳过一笔迟到记录(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[r.employeeId], company: r.company, date: r.date, time: r.time, notes: r.notes };
+    var { error } = await sb.from('attendance_late').insert(objToRow(ATT_FIELD_MAP, data));
+    if(error) log('❌ 迟到记录插入失败:' + error.message);
+  }
+  log('✅ 迟到记录搬迁完成,共 ' + lates.length + ' 笔');
+
+  var ots = backupData.otRecords || [];
+  for(var i=0;i<ots.length;i++){
+    var r = ots[i];
+    if(!idMap[r.employeeId]) { log('⚠️ 跳过一笔OT记录(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[r.employeeId], company: r.company, date: r.date, time: r.time, notes: r.notes };
+    var { error } = await sb.from('attendance_ot').insert(objToRow(ATT_FIELD_MAP, data));
+    if(error) log('❌ OT记录插入失败:' + error.message);
+  }
+  log('✅ OT记录搬迁完成,共 ' + ots.length + ' 笔');
+
+  // 5. leave_records
+  var leaves = backupData.leaveRecords || [];
+  for(var i=0;i<leaves.length;i++){
+    var r = leaves[i];
+    if(!idMap[r.employeeId]) { log('⚠️ 跳过一笔请假记录(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[r.employeeId], company: r.company, type: r.type, start: r.start, end: r.end, days: r.days, notes: r.notes };
+    var { error } = await sb.from('leave_records').insert(objToRow(LEAVE_FIELD_MAP, data));
+    if(error) log('❌ 请假记录插入失败:' + error.message);
+  }
+  log('✅ 请假记录搬迁完成,共 ' + leaves.length + ' 笔');
+
+  // 6. leave_carry
+  var carries = backupData.carryRecords || [];
+  for(var i=0;i<carries.length;i++){
+    var r = carries[i];
+    if(!idMap[r.employeeId]) { log('⚠️ 跳过一笔年假结转记录(找不到对应员工)'); continue; }
+    var data = { employeeId: idMap[r.employeeId], fromYear: r.fromYear, toYear: r.toYear, days: r.days };
+    var { error } = await sb.from('leave_carry').insert(objToRow(CARRY_FIELD_MAP, data));
+    if(error) log('❌ 年假结转记录插入失败:' + error.message);
+  }
+  log('✅ 年假结转记录搬迁完成,共 ' + carries.length + ' 笔');
+
+  // 7. payroll_records
+  var payrollKeys = Object.keys(backupData.payroll || {});
+  var payrollCount = 0;
+  for(var i=0;i<payrollKeys.length;i++){
+    var key = payrollKeys[i];
+    var parsed = parsePayrollKey(key);
+    if(!parsed){ log('⚠️ 无法解析薪水记录 key: ' + key); continue; }
+    var monthData = backupData.payroll[key];
+    var empIds = Object.keys(monthData);
+    for(var j=0;j<empIds.length;j++){
+      var oldEmpId = empIds[j];
+      if(!idMap[oldEmpId]){ log('⚠️ 跳过一笔薪水记录(找不到对应员工)'); continue; }
+      var s = monthData[oldEmpId];
+      var data = {
+        employeeId: idMap[oldEmpId], company: parsed.company, month: parsed.month,
+        allowance: s.allowance||0, phDays: s.phDays||0, otHours: s.otHours||0,
+        teamBonus: s.teamBonus||0, commissionSharing: s.commissionSharing||0, bonus: s.bonus||0,
+        epfSocso: s.epfSocso||0, pcb: s.pcb||0, hours: s.hours||0, notes: s.notes||''
+      };
+      var { error } = await sb.from('payroll_records').insert(objToRow(PAYROLL_FIELD_MAP, data));
+      if(error) log('❌ 薪水记录插入失败(' + parsed.company + ' ' + parsed.month + '):' + error.message);
+      else payrollCount++;
+    }
+  }
+  log('✅ 薪水记录搬迁完成,共 ' + payrollCount + ' 笔');
+
+  log('--- 搬迁结束 ---');
+  document.getElementById('mig-status').textContent = '完成,详情见下方日志';
+}
+</script>
+</body>
+</html>

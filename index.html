@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRSTONE HRMS · 登入</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <h1>FIRSTONE HRMS</h1>
+    <p class="subtitle">员工资料与薪水计算系统</p>
+    <label for="li-email">Email</label>
+    <input id="li-email" type="email" autocomplete="username" placeholder="you@example.com" />
+    <label for="li-pass">密码</label>
+    <input id="li-pass" type="password" autocomplete="current-password" placeholder="••••••••" />
+    <button id="li-btn" onclick="doLogin()">登入</button>
+    <p class="login-error" id="li-err"></p>
+  </div>
+</div>
+
+<script>
+(async function(){
+  // 已经登入的话直接跳转到主系统
+  var { data: { session } } = await sb.auth.getSession();
+  if(session){ window.location.href = 'app.html'; return; }
+  var params = new URLSearchParams(window.location.search);
+  if(params.get('err')==='noprofile'){
+    document.getElementById('li-err').textContent = '这个账号还没有设定角色(profiles),请联系管理员在 Supabase 后台补上。';
+  }
+})();
+
+async function doLogin(){
+  var email = document.getElementById('li-email').value.trim();
+  var pass = document.getElementById('li-pass').value;
+  var errEl = document.getElementById('li-err');
+  var btn = document.getElementById('li-btn');
+  errEl.textContent = '';
+  if(!email || !pass){ errEl.textContent = '请输入 email 和密码'; return; }
+  btn.disabled = true; btn.textContent = '登入中…';
+  var { error } = await sb.auth.signInWithPassword({ email: email, password: pass });
+  btn.disabled = false; btn.textContent = '登入';
+  if(error){ errEl.textContent = '登入失败:' + error.message; return; }
+  window.location.href = 'app.html';
+}
+
+document.getElementById('li-pass').addEventListener('keydown', function(e){
+  if(e.key==='Enter') doLogin();
+});
+</script>
+</body>
+</html>

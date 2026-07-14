@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRSTONE HRMS - 员工资料与薪水计算</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="top-actions">
+    <div class="user-bar">
+      <span id="user-name">加载中…</span>
+      <span class="badge" id="user-role-badge"></span>
+    </div>
+    <button class="secondary small" onclick="signOut()">登出</button>
+  </div>
+  <h1>FIRSTONE HRMS · 员工资料与薪水计算</h1>
+  <p class="subtitle" id="boss-hint" style="display:none;">你是老板账号,只能查看数据,不能新增/编辑/删除。要改资料请联系 Jolee。</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-emp" onclick="switchTab('emp')">员工资料</button>
+    <button class="tab-btn" id="tab-pay" onclick="switchTab('pay')">薪水计算</button>
+    <button class="tab-btn" id="tab-mc" onclick="switchTab('mc')">医药费报销</button>
+    <button class="tab-btn" id="tab-loan" onclick="switchTab('loan')">借支记录</button>
+    <button class="tab-btn" id="tab-att" onclick="switchTab('att')">打卡比对</button>
+    <button class="tab-btn" id="tab-leave" onclick="switchTab('leave')">请假管理</button>
+  </div>
+
+  <!-- ============ 员工资料 ============ -->
+  <div id="panel-emp">
+    <div class="card" id="emp-form-card">
+      <p class="section-label" id="form-title" style="font-size:15px;color:var(--text);font-weight:600;">新增员工</p>
+
+      <p class="section-label">基本资料</p>
+      <div class="grid">
+        <input id="f-nric" placeholder="NRIC / Passport" />
+        <input id="f-icfile" placeholder="IC/护照扫描件链接 (Google Drive)" />
+        <input id="f-nameen" placeholder="English name" />
+        <input id="f-namecn" placeholder="中文姓名" />
+        <select id="f-gender"><option value="男">男</option><option value="女">女</option></select>
+        <select id="f-nat">
+          <option value="本地">本地</option>
+          <option value="缅甸">缅甸</option>
+          <option value="尼泊尔">尼泊尔</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
+
+      <p class="section-label">联系方式</p>
+      <div class="grid">
+        <input id="f-email" placeholder="Email address" />
+        <input id="f-contact" placeholder="联络电话" />
+        <input id="f-address" placeholder="地址" style="grid-column:span 2;" />
+      </div>
+
+      <p class="section-label">工作资料</p>
+      <div class="grid">
+        <select id="f-company">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <input id="f-dept" placeholder="部门 Department" />
+        <input id="f-position" placeholder="职位 Position" />
+        <input id="f-join" type="date" />
+        <select id="f-emptype" onchange="toggleSalaryFields()">
+          <option value="正式员工">正式员工(月薪)</option>
+          <option value="兼职">兼职(时薪)</option>
+        </select>
+        <select id="f-payslip">
+          <option value="有Payslip">有 Payslip</option>
+          <option value="无Payslip">无 Payslip</option>
+        </select>
+        <select id="f-paymethod">
+          <option value="银行转账">银行转账</option>
+          <option value="现金">现金 Cash</option>
+        </select>
+      </div>
+      <div class="grid" id="salary-fields-monthly">
+        <input id="f-salary" type="number" placeholder="底薪 RM" />
+        <input id="f-allowance" type="number" placeholder="固定津贴 RM" />
+        <input id="f-annualleave" type="number" placeholder="年假天数(留空=按年资自动算)" />
+      </div>
+      <div class="grid" id="salary-fields-hourly" style="display:none;">
+        <input id="f-hourlyrate" type="number" placeholder="时薪 RM/小时" />
+      </div>
+
+      <p class="section-label">紧急联络人</p>
+      <div class="grid">
+        <input id="f-emname" placeholder="姓名" />
+        <input id="f-emnum" placeholder="联络电话" />
+        <input id="f-emrel" placeholder="关系" />
+      </div>
+
+      <p class="section-label">银行与政府户口</p>
+      <div class="grid">
+        <input id="f-bankname" placeholder="银行名称" />
+        <input id="f-holder" placeholder="户口持有人姓名" />
+        <input id="f-bankacc" placeholder="银行户口号码" />
+        <input id="f-kwsp" placeholder="KWSP / EPF 号码" />
+        <input id="f-pcb" placeholder="PCB 号码" />
+      </div>
+
+      <button id="btn-add" onclick="submitForm()">+ 新增员工</button>
+      <button class="secondary" id="btn-cancel-edit" style="display:none;" onclick="stopEdit()">取消</button>
+      <span class="msg" id="emp-msg"></span>
+    </div>
+
+    <div class="filters">
+      <select id="filter-company" onchange="renderEmpList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <select id="filter-status" onchange="renderEmpList()" style="flex:1;">
+        <option value="在职">在职员工</option>
+        <option value="离职">离职员工</option>
+        <option value="全部">全部</option>
+      </select>
+    </div>
+    <div id="emp-list" class="emp-list"></div>
+  </div>
+
+  <!-- ============ 薪水计算 ============ -->
+  <div id="panel-pay" style="display:none;">
+    <div class="toolbar">
+      <select id="pay-company" onchange="loadPayroll()" style="flex:1;min-width:140px;">
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <input id="pay-month" type="month" onchange="loadPayroll()" style="flex:1;min-width:140px;" />
+      <button class="secondary" onclick="loadPayroll()">刷新</button>
+      <button id="btn-pay-save" onclick="savePayroll()">保存本月薪水</button>
+      <span class="save-status" id="pay-msg"></span>
+    </div>
+    <div id="pay-table" class="pay-table-wrap"></div>
+    <div id="cash-list" style="margin-top:16px;"></div>
+    <div class="stat-grid" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="stat-box">
+        <p class="stat-label">员工人数</p>
+        <p class="stat-value" id="stat-count">0</p>
+      </div>
+      <div class="stat-box">
+        <p class="stat-label">本月净工资总额(实际转账给员工)</p>
+        <p class="stat-value" id="stat-total">RM0</p>
+      </div>
+      <div class="stat-box" style="border-color:var(--accent);">
+        <p class="stat-label">本月分店总支出(含EPF/SOCSO/PCB/预支/佣金)</p>
+        <p class="stat-value" id="stat-cost" style="color:var(--accent);">RM0</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 医药费报销 ============ -->
+  <div id="panel-mc" style="display:none;">
+    <div class="card" id="mc-form-card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">新增 MC / 医药报销</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">规则:仅限普通医生(GP)门诊,每次报销实际费用的50%,每人每年(1月1日至12月31日)上限RM500,不可结转到下一年。</p>
+      <div class="grid">
+        <select id="mc-company" onchange="populateMcEmployeeSelect()">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <select id="mc-employee" onchange="updateMcBalancePreview()"></select>
+        <input id="mc-date" type="date" onchange="updateMcBalancePreview()" />
+        <input id="mc-bill" type="number" placeholder="实际医药费收据金额 RM" oninput="updateMcBalancePreview()" />
+        <input id="mc-clinic" placeholder="诊所名称 (须为普通医生GP)" />
+        <input id="mc-receipt" placeholder="收据扫描件链接 (Google Drive)" />
+        <input id="mc-notes" placeholder="备注" style="grid-column:span 2;" />
+      </div>
+      <div id="mc-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;"></div>
+      <button onclick="addMcClaim()">+ 新增记录</button>
+      <span class="msg" id="mc-msg"></span>
+    </div>
+
+    <div class="filters">
+      <select id="mc-filter-company" onchange="renderMcList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <input id="mc-filter-year" type="number" placeholder="年份 (留空=全部)" style="flex:1;" onchange="renderMcList()" />
+    </div>
+    <div id="mc-list"></div>
+  </div>
+
+  <!-- ============ 借支记录 ============ -->
+  <div id="panel-loan" style="display:none;">
+    <div class="card" id="loan-form-card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">新增 借支 / 还款记录</p>
+      <div class="grid">
+        <select id="loan-company" onchange="populateLoanEmployeeSelect()">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <select id="loan-employee" onchange="updateLoanBalancePreview()"></select>
+        <select id="loan-type" onchange="updateLoanBalancePreview()">
+          <option value="borrow">借出(增加欠款)</option>
+          <option value="repay">还款/从薪水扣(减少欠款)</option>
+        </select>
+        <input id="loan-date" type="date" />
+        <input id="loan-amount" type="number" placeholder="金额 RM" oninput="updateLoanBalancePreview()" />
+        <input id="loan-notes" placeholder="原因/备注" style="grid-column:span 2;" />
+      </div>
+      <div id="loan-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;"></div>
+      <p style="font-size:12px;color:var(--text-secondary);margin:-8px 0 14px;">提示:还款记录的日期决定它会出现在哪个月的薪水表里自动扣款,例如7月要扣这笔还款,日期就填7月份的某一天。</p>
+      <button id="btn-loan-submit" onclick="addLoanRecord()">+ 新增记录</button>
+      <button class="secondary" id="btn-loan-cancel" style="display:none;" onclick="stopLoanEdit()">取消编辑</button>
+      <span class="msg" id="loan-msg"></span>
+    </div>
+
+    <div class="filters">
+      <select id="loan-filter-company" onchange="renderLoanList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <select id="loan-filter-status" onchange="renderLoanList()" style="flex:1;">
+        <option value="全部">全部员工</option>
+        <option value="欠款">仍有欠款</option>
+        <option value="已还清">已还清</option>
+      </select>
+    </div>
+    <div id="loan-list"></div>
+  </div>
+
+  <!-- ============ 打卡比对 ============ -->
+  <div id="panel-att" style="display:none;">
+    <div class="card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">上传打卡机导出文件预览</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">支持 .xlsx / .xls,只是帮你在这里预览,不会自动帮你算(每间店打卡机格式不同),看完数据后手动登记到下面。</p>
+      <input type="file" id="att-file" accept=".xlsx,.xls" onchange="handleAttFile(event)" style="margin-bottom:10px;" />
+      <div id="att-sheet-tabs" style="display:none;margin-bottom:10px;"></div>
+      <div id="att-preview" style="overflow:auto;max-height:400px;border:1px solid var(--border);border-radius:8px;"></div>
+    </div>
+
+    <div class="card" id="late-form-card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">⏰ 新增迟到记录</p>
+      <div class="grid">
+        <select id="late-company" onchange="populateLateEmployeeSelect()">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <select id="late-employee"></select>
+        <input id="late-date" type="date" />
+        <input id="late-time" type="text" placeholder="打卡时间 (例: 10.12AM)" />
+        <input id="late-notes" placeholder="备注" />
+      </div>
+      <button id="btn-late-submit" onclick="addLateRecord()">+ 新增迟到记录</button>
+      <button class="secondary" id="btn-late-cancel" style="display:none;" onclick="stopLateEdit()">取消编辑</button>
+      <span class="msg" id="late-msg"></span>
+    </div>
+
+    <div class="filters">
+      <select id="late-filter-company" onchange="renderLateList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <input id="late-filter-month" type="month" style="flex:1;" onchange="renderLateList()" />
+    </div>
+    <div id="late-list"></div>
+
+    <div class="card" id="ot-form-card" style="margin-top:24px;">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">🕘 新增 OT 记录</p>
+      <div class="grid">
+        <select id="ot-company" onchange="populateOtEmployeeSelect()">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <select id="ot-employee"></select>
+        <input id="ot-date" type="date" />
+        <input id="ot-time" type="text" placeholder="打卡时间 (例: 10.47PM)" />
+        <input id="ot-notes" placeholder="备注" />
+      </div>
+      <button id="btn-ot-submit" onclick="addOtRecord()">+ 新增OT记录</button>
+      <button class="secondary" id="btn-ot-cancel" style="display:none;" onclick="stopOtEdit()">取消编辑</button>
+      <span class="msg" id="ot-msg"></span>
+    </div>
+
+    <div class="filters">
+      <select id="ot-filter-company" onchange="renderOtList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <input id="ot-filter-month" type="month" style="flex:1;" onchange="renderOtList()" />
+    </div>
+    <div id="ot-list"></div>
+  </div>
+
+  <!-- ============ 请假管理 ============ -->
+  <div id="panel-leave" style="display:none;">
+    <div class="card" id="leave-form-card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">新增 请假记录</p>
+      <div class="grid">
+        <select id="leave-company" onchange="populateLeaveEmployeeSelect()">
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <select id="leave-employee" onchange="updateLeaveBalancePreview()"></select>
+        <select id="leave-type" onchange="updateLeaveBalancePreview()">
+          <option value="年假">年假 AL (Annual Leave)</option>
+          <option value="病假">病假 MC (Sick Leave)</option>
+          <option value="丧假">丧假 CL (Compassionate Leave)</option>
+          <option value="紧急事假">紧急事假 EL (从年假扣)</option>
+          <option value="产假">产假 ML (Maternity, 女性98天)</option>
+          <option value="陪产假">陪产假 PL (Paternity, 男性5天)</option>
+          <option value="无薪假">无薪假 Unpaid Leave</option>
+          <option value="其他">其他</option>
+        </select>
+        <input id="leave-start" type="date" onchange="autoCalcLeaveDays()" />
+        <input id="leave-end" type="date" onchange="autoCalcLeaveDays()" />
+        <input id="leave-days" type="number" step="0.5" placeholder="天数(自动算,可改成4.5等半天)" onchange="updateLeaveBalancePreview()" oninput="updateLeaveBalancePreview()" />
+        <input id="leave-notes" placeholder="原因/备注" style="grid-column:span 2;" />
+      </div>
+      <div id="leave-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;"></div>
+      <button id="btn-leave-submit" onclick="addLeaveRecord()">+ 新增记录</button>
+      <button class="secondary" id="btn-leave-cancel" style="display:none;" onclick="stopLeaveEdit()">取消编辑</button>
+      <span class="msg" id="leave-msg"></span>
+    </div>
+
+    <div class="card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">📋 员工假期总览(截至今天累计)</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">一次看所有员工今年用了多少假、MC报销了多少,方便员工问的时候直接查。</p>
+      <div class="filters">
+        <select id="ov-filter-company" onchange="renderLeaveOverview()" style="flex:1;">
+          <option value="全部">全部公司</option>
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+      </div>
+      <div id="leave-overview" class="pay-table-wrap"></div>
+    </div>
+
+    <div class="card" id="carry-card" style="border-color:var(--accent);">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">📦 年结年假结转(最多带 5 天到下一年)</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">选年底那一年,看谁到12月31号还有剩余年假。系统建议的结转天数会自动帮你封顶在5天,你可以改成实际要给的天数(比如0代表不结转、作废)。</p>
+      <div class="filters">
+        <select id="carry-filter-company" onchange="renderCarryList()" style="flex:1;">
+          <option value="全部">全部公司</option>
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <input id="carry-year" type="number" style="flex:1;" onchange="renderCarryList()" />
+      </div>
+      <div id="carry-list"></div>
+    </div>
+
+    <div class="filters">
+      <select id="leave-filter-company" onchange="renderLeaveList()" style="flex:1;">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <input id="leave-filter-year" type="number" placeholder="年份 (留空=全部)" style="flex:1;" onchange="renderLeaveList()" />
+    </div>
+    <div id="leave-list"></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/employees.js"></script>
+<script src="js/payroll.js"></script>
+<script src="js/mcClaims.js"></script>
+<script src="js/loans.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/leave.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
