@@ -316,7 +316,8 @@
         <select id="leave-type" onchange="updateLeaveBalancePreview()">
           <option value="年假">年假 AL (Annual Leave)</option>
           <option value="病假">病假 MC (Sick Leave)</option>
-          <option value="丧假">丧假 CL (Compassionate Leave)</option>
+          <option value="同情假">同情假 CL (Compassionate Leave, 1天/年, 超过从年假扣)</option>
+          <option value="丧假">丧假 Bereavement Leave(有薪, 不影响年假, 须死亡证明书)</option>
           <option value="紧急事假">紧急事假 EL (从年假扣)</option>
           <option value="产假">产假 ML (Maternity, 女性98天)</option>
           <option value="陪产假">陪产假 PL (Paternity, 男性5天)</option>
@@ -346,6 +347,17 @@
         </select>
       </div>
       <div id="leave-overview" class="pay-table-wrap"></div>
+      <div style="background:var(--surface-2);border-radius:8px;padding:12px 16px;margin-top:14px;font-size:12px;color:var(--text-secondary);line-height:1.9;">
+        <p style="font-weight:600;color:var(--text);margin:0 0 6px;">📄 假期政策备注(参考用,系统不会自动套用以下所有细节)</p>
+        <p style="margin:0;">1. AL 需提前 3 天申请,若在 72 小时内申请视为无薪假 Unpaid Leave</p>
+        <p style="margin:0;">2. AL 结转规则:系统实际执行的是「年底剩余最多带 5 天到下一年,超过作废」,不是发钱(旧版一半发钱的做法已作废,这行只作历史参考)</p>
+        <p style="margin:0;">3. MC 需要医生证明;如是工伤住院,享有 60 天</p>
+        <p style="margin:0;">4. 产假 ML:女性有薪 98 天(含孕期复诊、备产期);产假后需交 MC form + 医生证明书 + 孩子报生纸</p>
+        <p style="margin:0;">5. 陪产假 PL:男性有薪 5 天;陪产假后同样需交 MC form + 医生证明书 + 孩子报生纸</p>
+        <p style="margin:0;">6. 紧急事假 EL:没有自己的额度,直接从 AL 扣</p>
+        <p style="margin:0;">7. 同情假 CL:所有员工固定 1 天/年,需要延长的部分从 AL 扣</p>
+        <p style="margin:0;">8. 丧假(须提供死亡证明书,结束后需交请假申请表 + 死亡证明书给店长核准、人事部备案):直属亲属(配偶/父母/子女/岳父母/家公家婆)往生享 3 天有薪丧假;兄弟姐妹/公婆/外公外婆往生享 2 天有薪丧假。超过部分从 AL 扣,AL 用完则列为无薪假扣薪水。没有死亡证明书就自行请假,直接算无薪假。系统目前只负责记录丧假用了几天,不会自动套用 3 天/2 天的额度判断,需要你自己核对。</p>
+      </div>
     </div>
 
     <div class="card" id="carry-card" style="border-color:var(--accent);">

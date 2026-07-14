@@ -104,8 +104,9 @@ function annualLeaveUsed(employeeId, year, excludeId){
   if(isMyanmarEmployee(emp)) return 0; // 缅甸员工没有AL概念,所有假期都算无薪假
   var alDays = daysForType(employeeId, '年假', year, excludeId);
   var elDays = daysForType(employeeId, '紧急事假', year, excludeId);
-  var clDays = daysForType(employeeId, '丧假', year, excludeId);
+  var clDays = daysForType(employeeId, '同情假', year, excludeId); // 同情假CL固定1天,超过从AL扣
   var clOverflow = Math.max(0, round2(clDays - clEntitlement(emp)));
+  // 注意:「丧假」是另一种独立的有薪假(死亡证明书那种),不计入年假扣除,系统只记录用了几天,不在这里处理
   return round2(alDays + elDays + clOverflow);
 }
 
@@ -142,14 +143,20 @@ function updateLeaveBalancePreview(){
     el.innerHTML = '<span style="color:var(--text-muted);">此类型不影响任何假期额度,只作记录用</span>';
     return;
   }
-  if(type==='年假' || type==='紧急事假' || type==='丧假'){
+  if(type==='年假' || type==='紧急事假' || type==='同情假'){
     var alEnt = accruedAnnualLeave(emp, asOfDate);
     var alUsed = annualLeaveUsed(employeeId, year, editingLeaveId);
-    var extra = type==='紧急事假' ? thisDays : (type==='丧假' ? Math.max(0, round2(thisDays + leaveDaysForType(employeeId,'丧假',year) - clEntitlement(emp))) : thisDays);
+    var extra = type==='紧急事假' ? thisDays : (type==='同情假' ? Math.max(0, round2(thisDays + leaveDaysForType(employeeId,'同情假',year) - clEntitlement(emp))) : thisDays);
     var alRemain = round2(alEnt - alUsed - (type==='年假'?thisDays:extra));
-    var note = type==='紧急事假' ? '(EL会从年假额度扣)' : (type==='丧假' ? '(丧假固定1天,超过的部分会从年假扣)' : '');
-    el.innerHTML = '截至 '+asOfDate+' 累计年假 <b>'+alEnt+'</b> 天,'+year+'年已用(含EL/超额CL) <b>'+alUsed+'</b> 天,这次影响年假 <b>'+(type==='年假'?thisDays:extra)+'</b> 天 '+note+',之后年假剩余 <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b> 天'
+    var note = type==='紧急事假' ? '(EL会从年假额度扣)' : (type==='同情假' ? '(同情假固定1天,超过的部分会从年假扣)' : '');
+    el.innerHTML = '截至 '+asOfDate+' 累计年假 <b>'+alEnt+'</b> 天,'+year+'年已用(含EL/超额同情假) <b>'+alUsed+'</b> 天,这次影响年假 <b>'+(type==='年假'?thisDays:extra)+'</b> 天 '+note+',之后年假剩余 <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b> 天'
       + (alRemain<0?' <span style="color:var(--danger);">(超过目前累计的年假)</span>':'');
+    return;
+  }
+  if(type==='丧假'){
+    var bvUsed = leaveDaysForType(employeeId, '丧假', year);
+    el.innerHTML = '丧假是独立的有薪假,不影响年假额度,系统只记录天数。'+year+'年已记录 <b>'+bvUsed+'</b> 天,这次 <b>'+thisDays+'</b> 天'
+      + '<br/><span style="color:var(--text-muted);">政策参考:直属亲属(配偶/父母/子女/岳父母/家公家婆)3天;兄弟姐妹/公婆/外公外婆2天;超过部分要自己核对,手动改成无薪假或提醒扣年假。须提供死亡证明书。</span>';
     return;
   }
   if(type==='病假'){
@@ -271,7 +278,7 @@ function renderLeaveList(){
   });
   order.sort(function(a,b){ return byEmployee[a].name.localeCompare(byEmployee[b].name); });
 
-  var typeColor = {'年假':'var(--success)','病假':'var(--warning)','紧急事假':'var(--accent)','无薪假':'var(--danger)','丧假':'var(--text-muted)','产假':'var(--accent)','陪产假':'var(--accent)','其他':'var(--text-secondary)'};
+  var typeColor = {'年假':'var(--success)','病假':'var(--warning)','紧急事假':'var(--accent)','无薪假':'var(--danger)','同情假':'var(--text-muted)','丧假':'var(--text-muted)','产假':'var(--accent)','陪产假':'var(--accent)','其他':'var(--text-secondary)'};
 
   var html = '';
   order.forEach(function(empId){
@@ -334,7 +341,7 @@ function renderLeaveOverview(){
   list.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
 
   var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th>'
-    + '<th>AL 已用/累计/剩余</th><th>MC 已用/额度/剩余</th><th>CL 已用/额度/剩余</th>'
+    + '<th>AL 已用/累计/剩余</th><th>MC 已用/额度/剩余</th><th>同情假 已用/额度/剩余</th><th>丧假 已用</th>'
     + '<th>EL 已用</th><th>ML 已用</th><th>PL 已用</th><th>无薪假</th><th>医疗费报销 RM</th></tr>';
   list.forEach(function(e){
     var alAccrued = accruedAnnualLeave(e, today);
@@ -346,8 +353,10 @@ function renderLeaveOverview(){
     var mcRemainDays = round2(mcEnt - mcUsedDays);
 
     var clEnt = clEntitlement(e);
-    var clUsedDays = leaveDaysForType(e.id, '丧假', year);
+    var clUsedDays = leaveDaysForType(e.id, '同情假', year);
     var clRemainDays = round2(clEnt - clUsedDays);
+
+    var bvUsedDays = leaveDaysForType(e.id, '丧假', year); // 丧假不设额度,只记录天数
 
     var elUsedDays = leaveDaysForType(e.id, '紧急事假', year);
     var mlUsedDays = leaveDaysForType(e.id, '产假', year);
@@ -364,6 +373,7 @@ function renderLeaveOverview(){
       + '<td style="white-space:nowrap;">'+alUsed+' / '+alAccrued+' / <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b></td>'
       + '<td style="white-space:nowrap;">'+mcUsedDays+' / '+mcEnt+' / <b style="color:'+(mcRemainDays<0?'var(--danger)':'var(--success)')+';">'+mcRemainDays+'</b></td>'
       + '<td style="white-space:nowrap;">'+clUsedDays+' / '+clEnt+' / <b style="color:'+(clRemainDays<0?'var(--danger)':'var(--success)')+';">'+clRemainDays+'</b></td>'
+      + '<td>'+bvUsedDays+'</td>'
       + '<td>'+elUsedDays+'</td>'
       + '<td>'+mlUsedDays+'</td>'
       + '<td>'+plUsedDays+'</td>'
