@@ -107,58 +107,81 @@ function renderEmpList(){
     });
   });
 
-  var html = '';
-  order.forEach(function(g){
-    html += '<p style="font-size:13px;font-weight:600;margin:0 0 8px;color:var(--text-secondary);">'+esc(g)+' <span style="font-weight:400;color:var(--text-muted);">('+groups[g].length+'人)</span></p>';
-    html += '<div class="emp-list" style="margin-bottom:18px;">';
-    groups[g].forEach(function(e){
-      var isOpen = !!expanded[e.id];
-      html += '<div class="emp-row">';
-      html += '<div class="emp-row-head" onclick="toggleRow(\''+e.id+'\')">'
-        + '<div class="avatar">'+esc(e.nameEn||e.nameCn||'?').slice(0,1).toUpperCase()+'</div>'
-        + '<div style="flex:1;min-width:0;">'
-        + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span></p>'
-        + '<p class="emp-meta"><b style="color:var(--text-secondary);">'+esc(e.company)+'</b> · '+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
-        + '</div>'
-        + '<span class="badge '+(e.status==='离职'?'inactive':'active')+'">'+(e.status||'在职')+'</span>'
-        + '<span class="chevron">'+(isOpen?'▼':'▶')+'</span>'
+  function empCardHtml(e, numLabel){
+    var isOpen = !!expanded[e.id];
+    var html = '<div class="emp-row">';
+    html += '<div class="emp-row-head" onclick="toggleRow(\''+e.id+'\')">'
+      + '<div class="avatar">'+(numLabel!==undefined ? numLabel : esc(e.nameEn||e.nameCn||'?').slice(0,1).toUpperCase())+'</div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span></p>'
+      + '<p class="emp-meta"><b style="color:var(--text-secondary);">'+esc(e.company)+'</b> · '+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
+      + '</div>'
+      + '<span class="badge '+(e.status==='离职'?'inactive':'active')+'">'+(e.status||'在职')+'</span>'
+      + '<span class="chevron">'+(isOpen?'▼':'▶')+'</span>'
+      + '</div>';
+    if(isOpen){
+      html += '<div class="emp-detail"><table>'
+        + row('公司', e.company)
+        + row('NRIC/Passport', e.nric)
+        + row('IC/护照扫描件', e.icFile ? '<a href="'+esc(e.icFile)+'" target="_blank">查看链接</a>' : '-', true)
+        + row('Email', e.email) + row('联络电话', e.contact) + row('地址', e.address)
+        + row('性别', e.gender) + row('国籍', e.nationality) + row('入职日期', e.joinDate)
+        + row('员工类型', e.employeeType) + row('是否有Payslip', e.nationality==='本地'&&e.employeeType!=='兼职' ? e.hasPayslip : '-')
+        + row('支付方式', e.paymentMethod||'银行转账')
+        + row('底薪', e.employeeType==='兼职'?'-':fmt(e.basicSalary))
+        + row('固定津贴', e.employeeType==='兼职'?'-':fmt(e.allowance))
+        + row('年假天数(按年资自动算)', e.employeeType==='兼职'?'-':annualLeaveEntitlement(e)+' 天' + (e.annualLeave>0?' (手动设定)':' (2年以下8天/2-5年12天/5年以上16天)'))
+        + row('时薪', e.employeeType==='兼职' ? fmt(e.hourlyRate) : '-')
+        + row('紧急联络人', (e.emergencyName||'-') + (e.emergencyRel? ' ('+e.emergencyRel+')':''))
+        + row('紧急联络电话', e.emergencyNumber)
+        + row('银行名称', e.bankName) + row('户口持有人', e.accountHolder) + row('银行户口号码', e.bankAccountNumber)
+        + row('KWSP 号码', e.kwspNumber) + row('PCB 号码', e.pcbNumber)
+        + '</table>';
+      if(isAdmin()){
+        html += '<div class="detail-actions">'
+        + '<button class="secondary small" onclick="event.stopPropagation();editEmp(\''+e.id+'\')">编辑</button>'
+        + '<button class="secondary small" onclick="event.stopPropagation();toggleStatus(\''+e.id+'\')">切换在职/离职</button>'
+        + '<button class="secondary small" onclick="event.stopPropagation();delEmp(\''+e.id+'\')">删除</button>'
         + '</div>';
-      if(isOpen){
-        html += '<div class="emp-detail"><table>'
-          + row('公司', e.company)
-          + row('NRIC/Passport', e.nric)
-          + row('IC/护照扫描件', e.icFile ? '<a href="'+esc(e.icFile)+'" target="_blank">查看链接</a>' : '-', true)
-          + row('Email', e.email) + row('联络电话', e.contact) + row('地址', e.address)
-          + row('性别', e.gender) + row('国籍', e.nationality) + row('入职日期', e.joinDate)
-          + row('员工类型', e.employeeType) + row('是否有Payslip', e.nationality==='本地'&&e.employeeType!=='兼职' ? e.hasPayslip : '-')
-          + row('支付方式', e.paymentMethod||'银行转账')
-          + row('底薪', e.employeeType==='兼职'?'-':fmt(e.basicSalary))
-          + row('固定津贴', e.employeeType==='兼职'?'-':fmt(e.allowance))
-          + row('年假天数(按年资自动算)', e.employeeType==='兼职'?'-':annualLeaveEntitlement(e)+' 天' + (e.annualLeave>0?' (手动设定)':' (2年以下8天/2-5年12天/5年以上16天)'))
-          + row('时薪', e.employeeType==='兼职' ? fmt(e.hourlyRate) : '-')
-          + row('紧急联络人', (e.emergencyName||'-') + (e.emergencyRel? ' ('+e.emergencyRel+')':''))
-          + row('紧急联络电话', e.emergencyNumber)
-          + row('银行名称', e.bankName) + row('户口持有人', e.accountHolder) + row('银行户口号码', e.bankAccountNumber)
-          + row('KWSP 号码', e.kwspNumber) + row('PCB 号码', e.pcbNumber)
-          + '</table>';
-        if(isAdmin()){
-          html += '<div class="detail-actions">'
-          + '<button class="secondary small" onclick="event.stopPropagation();editEmp(\''+e.id+'\')">编辑</button>'
-          + '<button class="secondary small" onclick="event.stopPropagation();toggleStatus(\''+e.id+'\')">切换在职/离职</button>'
-          + '<button class="secondary small" onclick="event.stopPropagation();delEmp(\''+e.id+'\')">删除</button>'
-          + '</div>';
-        }
-        html += '</div>';
       }
       html += '</div>';
-    });
+    }
     html += '</div>';
-  });
-  container.innerHTML = html;
+    return html;
+  }
 
   function row(label, val, isHtml){
     return '<tr><td>'+label+'</td><td>'+(isHtml? (val||'-') : esc(val||'-'))+'</td></tr>';
   }
+
+  var html = '';
+  order.forEach(function(g){
+    html += '<p style="font-size:13px;font-weight:600;margin:0 0 8px;color:var(--text-secondary);">'+esc(g)+' <span style="font-weight:400;color:var(--text-muted);">('+groups[g].length+'人)</span></p>';
+    html += '<div class="emp-list" style="margin-bottom:18px;">';
+    if(fc==='全部'){
+      // 全部公司检视:组内再照公司拆出子标题,子标题下按名字编号
+      var byCompany = {};
+      var companyOrder = [];
+      groups[g].forEach(function(e){
+        var c = e.company || '未指定公司';
+        if(!byCompany[c]){ byCompany[c] = []; companyOrder.push(c); }
+        byCompany[c].push(e);
+      });
+      companyOrder.sort(function(a,b){
+        var ca = COMPANY_ORDER[a]!==undefined ? COMPANY_ORDER[a] : 99;
+        var cb = COMPANY_ORDER[b]!==undefined ? COMPANY_ORDER[b] : 99;
+        return ca-cb;
+      });
+      companyOrder.forEach(function(c){
+        html += '<div style="padding:8px 16px;background:var(--surface-2);font-size:12px;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border);">'+esc(c)+'</div>';
+        byCompany[c].forEach(function(e, idx){ html += empCardHtml(e, idx+1); });
+      });
+    } else {
+      groups[g].forEach(function(e){ html += empCardHtml(e); });
+    }
+    html += '</div>';
+  });
+  container.innerHTML = html;
 }
 
 function toggleRow(id){ expanded[id] = !expanded[id]; renderEmpList(); }
