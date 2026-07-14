@@ -441,8 +441,23 @@ function renderCarryList(){
   });
   var container = document.getElementById('carry-list');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无员工</div>'; return; }
-  list.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
 
+  // 排序规则跟「员工假期总览」完全一样,方便两张表对照着看
+  var COMPANY_ORDER2 = {'FIRSTONE':0, 'CS FIRSTONE':1, 'TONGPOPO':2};
+  var NAT_ORDER2 = {'本地':0, '尼泊尔':1, '缅甸':2};
+  function natRank2(nat){ return NAT_ORDER2[nat]!==undefined ? NAT_ORDER2[nat] : 99; }
+  list.sort(function(a,b){
+    if(fc==='全部'){
+      var ca = COMPANY_ORDER2[a.company]!==undefined ? COMPANY_ORDER2[a.company] : 99;
+      var cb = COMPANY_ORDER2[b.company]!==undefined ? COMPANY_ORDER2[b.company] : 99;
+      if(ca!==cb) return ca-cb;
+    }
+    var na = natRank2(a.nationality), nb = natRank2(b.nationality);
+    if(na!==nb) return na-nb;
+    return (a.nameEn||'').localeCompare(b.nameEn||'');
+  });
+
+  // 不过滤掉「剩余为0」的员工,让这张表跟「员工假期总览」显示同一批人、同一个顺序,方便对照
   var rows = list.map(function(e){
     var fullYearEntitlement = accruedAnnualLeave(e, year+'-12-31');
     var used = annualLeaveUsed(e.id, year);
@@ -450,21 +465,19 @@ function renderCarryList(){
     var suggested = Math.max(0, Math.min(remaining, AL_MAX_CARRY));
     var forfeited = Math.max(0, round2(remaining - AL_MAX_CARRY));
     return { e:e, remaining:remaining, suggested:suggested, forfeited:forfeited };
-  }).filter(function(r){ return r.remaining>0; });
-
-  if(rows.length===0){ container.innerHTML = '<div class="empty-state">'+year+'年底没有员工有剩余年假</div>'; return; }
+  });
 
   var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th><th>'+year+'年底剩余</th><th>建议结转(封顶5天)</th><th>会作废</th><th>实际结转到'+nextYear+'年</th></tr>';
   rows.forEach(function(r, i){
     var current = carryInDays(r.e.id, nextYear) || r.suggested;
-    var dis = isAdmin() ? '' : 'disabled';
+    var dis = (isAdmin() && r.remaining>0) ? '' : 'disabled';
     html += '<tr data-emp="'+r.e.id+'">'
-      + '<td style="font-weight:500;white-space:nowrap;">'+esc(r.e.nameEn)+(r.e.nameCn?' '+esc(r.e.nameCn):'')+'</td>'
-      + '<td>'+esc(r.e.company)+'</td>'
-      + '<td style="text-align:right;">'+r.remaining+' 天</td>'
-      + '<td style="text-align:right;color:var(--success);">'+r.suggested+' 天</td>'
-      + '<td style="text-align:right;color:'+(r.forfeited>0?'var(--danger)':'var(--text-muted)')+';">'+r.forfeited+' 天</td>'
-      + '<td><input type="number" step="0.5" class="carry-input" data-emp="'+r.e.id+'" data-from="'+year+'" data-to="'+nextYear+'" value="'+current+'" style="width:70px;" '+dis+' /></td>'
+      + '<td style="font-weight:500;white-space:nowrap;">'+esc(r.e.nameEn)+(r.e.nameCn?' '+esc(r.e.nameCn):'')+' <span style="color:var(--text-muted);font-weight:400;font-size:11px;">('+esc(r.e.nationality||'其他')+')</span></td>'
+      + '<td style="white-space:nowrap;">'+esc(r.e.company)+'</td>'
+      + '<td style="text-align:right;">'+(r.remaining>0?r.remaining+' 天':'<span style="color:var(--text-muted);">0 天</span>')+'</td>'
+      + '<td style="text-align:right;color:var(--success);">'+(r.remaining>0?r.suggested+' 天':'-')+'</td>'
+      + '<td style="text-align:right;color:'+(r.forfeited>0?'var(--danger)':'var(--text-muted)')+';">'+(r.remaining>0?r.forfeited+' 天':'-')+'</td>'
+      + '<td>'+(r.remaining>0?'<input type="number" step="0.5" class="carry-input" data-emp="'+r.e.id+'" data-from="'+year+'" data-to="'+nextYear+'" value="'+current+'" style="width:70px;" '+dis+' />':'<span style="color:var(--text-muted);">-</span>')+'</td>'
       + '</tr>';
   });
   html += '</table>';
