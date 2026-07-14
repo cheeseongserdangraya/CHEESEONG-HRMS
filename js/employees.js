@@ -83,6 +83,30 @@ function renderEmpList(){
     if(!groups[g]){ groups[g] = []; order.push(g); }
     groups[g].push(e);
   });
+
+  // 组的显示顺序固定:本地(有/无Payslip) → 尼泊尔 → 缅甸 → 其他国籍 → 兼职(永远最后)
+  var GROUP_ORDER = ['本地员工 - 有 Payslip', '本地员工 - 无 Payslip', '尼泊尔员工', '缅甸员工'];
+  function groupRank(g){
+    var idx = GROUP_ORDER.indexOf(g);
+    if(idx>-1) return idx;
+    if(g.indexOf('兼职')===0) return 999;
+    return GROUP_ORDER.length; // 没列到的国籍(例如"其他"),排在缅甸后面、兼职前面
+  }
+  order.sort(function(a,b){ return groupRank(a)-groupRank(b); });
+
+  // 组内排序:选"全部公司"时先照 FIRSTONE → CS FIRSTONE → TONGPOPO 分,再照名字A-Z;选单一公司时直接照名字A-Z
+  var COMPANY_ORDER = {'FIRSTONE':0, 'CS FIRSTONE':1, 'TONGPOPO':2};
+  order.forEach(function(g){
+    groups[g].sort(function(a,b){
+      if(fc==='全部'){
+        var ca = COMPANY_ORDER[a.company]!==undefined ? COMPANY_ORDER[a.company] : 99;
+        var cb = COMPANY_ORDER[b.company]!==undefined ? COMPANY_ORDER[b.company] : 99;
+        if(ca!==cb) return ca-cb;
+      }
+      return (a.nameEn||'').localeCompare(b.nameEn||'');
+    });
+  });
+
   var html = '';
   order.forEach(function(g){
     html += '<p style="font-size:13px;font-weight:600;margin:0 0 8px;color:var(--text-secondary);">'+esc(g)+' <span style="font-weight:400;color:var(--text-muted);">('+groups[g].length+'人)</span></p>';
@@ -94,7 +118,7 @@ function renderEmpList(){
         + '<div class="avatar">'+esc(e.nameEn||e.nameCn||'?').slice(0,1).toUpperCase()+'</div>'
         + '<div style="flex:1;min-width:0;">'
         + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span></p>'
-        + '<p class="emp-meta">'+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
+        + '<p class="emp-meta"><b style="color:var(--text-secondary);">'+esc(e.company)+'</b> · '+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
         + '</div>'
         + '<span class="badge '+(e.status==='离职'?'inactive':'active')+'">'+(e.status||'在职')+'</span>'
         + '<span class="chevron">'+(isOpen?'▼':'▶')+'</span>'
