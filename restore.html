@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIRSTONE HRMS · CSV 备份还原工具</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+</head>
+<body>
+<div class="wrap" style="max-width:820px;">
+  <h1>CSV 备份还原工具</h1>
+  <p class="subtitle">只有在 Supabase 资料真的不见了(项目被误删、表被误删等灾难情况)才需要用这个。把你之前从 Table Editor 导出的 CSV,原封不动地导回资料库。只有 admin 能用。</p>
+
+  <div class="card" style="border-color:var(--danger);background:var(--danger-light);">
+    <p style="font-size:13px;font-weight:600;margin:0 0 6px;color:var(--danger);">⚠️ 使用前必读</p>
+    <ul style="font-size:12px;color:var(--text);margin:0;padding-left:18px;line-height:1.8;">
+      <li>这个工具是把 CSV 原封不动插回去,**保留原本的 id**,所以只适合「资料表是空的」这种情况(比如整个专案重建)</li>
+      <li>如果表里已经有资料,重复导入同一份 CSV 会因为 id 重复而报错(这是保护机制,不会让你不小心导入两份)</li>
+      <li>**顺序很重要**:一定要先还原「员工资料」,再还原其他表——因为薪水、请假、报销记录都是靠 employee_id 关联到员工,员工资料没建好,其他表会插入失败</li>
+      <li>每张表选对应的 CSV 文件,文件名不重要,重要的是内容欗位要跟原本这张表一致(直接用 Table Editor 导出的原始 CSV 就没问题)</li>
+    </ul>
+  </div>
+
+  <div id="restore-panels"></div>
+
+  <div class="card">
+    <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">进度日志</p>
+    <pre id="log" style="white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-radius:8px;padding:12px;max-height:400px;overflow:auto;"></pre>
+  </div>
+</div>
+
+<script>
+var TABLES = [
+  { key:'employees', label:'1. 员工资料 employees(必须最先做)', numeric:['basic_salary','allowance','hourly_rate','annual_leave_override'], date:['join_date'] },
+  { key:'payroll_records', label:'2. 薪水记录 payroll_records', numeric:['allowance','ph_days','ot_hours','team_bonus','commission_sharing','bonus','epf_socso','pcb','hours'], date:[] },
+  { key:'mc_claims', label:'3. 医药报销 mc_claims', numeric:['bill_amount','claim_amount'], date:['date'] },
+  { key:'loan_records', label:'4. 借支记录 loan_records', numeric:['amount'], date:['date'] },
+  { key:'attendance_late', label:'5. 迟到记录 attendance_late', numeric:[], date:['date'] },
+  { key:'attendance_ot', label:'6. OT记录 attendance_ot', numeric:[], date:['date'] },
+  { key:'leave_records', label:'7. 请假记录 leave_records', numeric:['days'], date:['start_date','end_date'] },
+  { key:'leave_carry', label:'8. 年假结转 leave_carry', numeric:['days'], date:[] }
+];
+
+(async function(){
+  var profile = await requireAuth();
+  if(!profile) return;
+  if(!isAdmin()){
+    document.body.innerHTML = '<div class="wrap"><div class="card"><p>只有 admin 账号能用这个工具。</p></div></div>';
+    return;
+  }
+  renderPanels();
+})();
+
+function renderPanels(){
+  var container = document.getElementById('restore-panels');
+  container.innerHTML = TABLES.map(function(t){
+    return '<div class="card">'
+      + '<p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">'+t.label+'</p>'
+      + '<input type="file" id="file-'+t.key+'" accept=".csv" style="margin-bottom:10px;" />'
+      + '<button onclick="restoreTable(\''+t.key+'\')">还原这张表</button>'
+      + '</div>';
+  }).join('');
+}
+
+function log(msg){
+  var el = document.getElementById('log');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+// 简单但完整的 CSV parser:支持双引号包住的欗位、欗位内的逗号、换行、"" 转义引号
+function parseCSV(text){
+  var rows = [];
+  var row = [];
+  var field = '';
+  var inQuotes = false;
+  text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for(var i=0;i<text.length;i++){
+    var c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else {
+      if(c === '"') inQuotes = true;
+      else if(c === ','){ row.push(field); field = ''; }
+      else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+      else field += c;
+    }
+  }
+  if(field.length>0 || row.length>0){ row.push(field); rows.push(row); }
+  if(rows.length && rows[rows.length-1].length===1 && rows[rows.length-1][0]===''){ rows.pop(); }
+
+  var headers = rows.shift();
+  return rows.map(function(r){
+    var obj = {};
+    headers.forEach(function(h, idx){ obj[h] = r[idx]; });
+    return obj;
+  });
+}
+
+function cleanRow(obj, config){
+  var out = {};
+  Object.keys(obj).forEach(function(k){
+    var v = obj[k];
+    if(v === '' || v === undefined){ out[k] = null; return; }
+    if(config.numeric.indexOf(k)>-1){ out[k] = Number(v); return; }
+    out[k] = v;
+  });
+  return out;
+}
+
+async function restoreTable(key){
+  var config = TABLES.find(function(t){ return t.key===key; });
+  var fileInput = document.getElementById('file-'+key);
+  var file = fileInput.files[0];
+  if(!file){ log('❌ ['+key+'] 请先选择 CSV 文件'); return; }
+
+  log('--- 开始还原 ' + key + ' ---');
+  var reader = new FileReader();
+  reader.onload = async function(e){
+    var rows;
+    try{
+      rows = parseCSV(e.target.result);
+    }catch(err){
+      log('❌ ['+key+'] CSV 解析失败:' + err.message);
+      return;
+    }
+    if(rows.length===0){ log('⚠️ ['+key+'] 这个文件没有资料'); return; }
+    var cleaned = rows.map(function(r){ return cleanRow(r, config); });
+
+    // 分批插入,每批 200 行
+    var batchSize = 200;
+    var success = 0;
+    for(var i=0;i<cleaned.length;i+=batchSize){
+      var batch = cleaned.slice(i, i+batchSize);
+      var { error } = await sb.from(key).insert(batch);
+      if(error){
+        log('❌ ['+key+'] 第 '+(i+1)+'-'+(i+batch.length)+' 笔插入失败:' + error.message);
+        log('   (常见原因:员工资料还没还原、或这张表已经有资料造成 id 重复)');
+        return;
+      }
+      success += batch.length;
+    }
+    log('✅ ['+key+'] 还原完成,共 ' + success + ' 笔');
+  };
+  reader.readAsText(file);
+}
+</script>
+</body>
+</html>
