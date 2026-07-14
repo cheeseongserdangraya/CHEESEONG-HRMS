@@ -15,7 +15,10 @@
       <span id="user-name">加载中…</span>
       <span class="badge" id="user-role-badge"></span>
     </div>
-    <button class="secondary small" onclick="signOut()">登出</button>
+    <div>
+      <button class="secondary small" onclick="window.location.href='leave-card.html'">员工假期卡片</button>
+      <button class="secondary small" onclick="signOut()">登出</button>
+    </div>
   </div>
   <h1>CHEESEONG HRMS · 员工资料与薪水计算</h1>
   <p class="subtitle" id="boss-hint" style="display:none;">你是老板账号,只能查看数据,不能新增/编辑/删除。要改资料请联系 Jolee。</p>
@@ -27,6 +30,7 @@
     <button class="tab-btn" id="tab-loan" onclick="switchTab('loan')">借支记录</button>
     <button class="tab-btn" id="tab-att" onclick="switchTab('att')">打卡比对</button>
     <button class="tab-btn" id="tab-leave" onclick="switchTab('leave')">请假管理</button>
+    <button class="tab-btn" id="tab-ph" onclick="switchTab('ph')">PH假期</button>
   </div>
 
   <!-- ============ 员工资料 ============ -->
@@ -322,6 +326,7 @@
           <option value="产假">产假 ML (Maternity, 女性98天)</option>
           <option value="陪产假">陪产假 PL (Paternity, 男性5天)</option>
           <option value="无薪假">无薪假 Unpaid Leave</option>
+          <option value="PH假期">PH假期(用累积的PH假期额度)</option>
           <option value="其他">其他</option>
         </select>
         <input id="leave-start" type="date" onchange="autoCalcLeaveDays()" />
@@ -386,6 +391,47 @@
     </div>
     <div id="leave-list"></div>
   </div>
+
+  <!-- ============ PH假期 ============ -->
+  <div id="panel-ph" style="display:none;">
+    <div class="card" id="ph-form-card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">新增 PH假期换钱/换假期记录</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px;">PH假期额度不是固定公式算的,单纯是这里记录的「换假期」天数总和,减掉员工已经请的PH假期天数。选好这批PH对应的年月和说明,下面勾选要记录的员工,勾了会出现在下方表格,逐一选换钱或换假期,填完按保存。</p>
+      <div class="grid">
+        <input id="ph-batch-month" type="month" />
+        <input id="ph-days" type="number" step="0.5" value="1" placeholder="这批PH天数(默认1天)" />
+        <input id="ph-description" placeholder="说明(例如:国庆日调假)" style="grid-column:span 2;" />
+      </div>
+      <div class="filters">
+        <select id="ph-checklist-company" onchange="renderPhChecklist()" style="flex:1;">
+          <option value="全部">全部公司</option>
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+      </div>
+      <div id="ph-checklist" class="emp-list" style="margin-bottom:16px;"></div>
+
+      <p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">已勾选的员工 — 选换钱或换假期</p>
+      <div id="ph-selected-table" class="pay-table-wrap" style="margin-bottom:14px;"></div>
+      <button id="btn-ph-save" onclick="savePhBatch()">保存这批记录</button>
+      <span class="msg" id="ph-msg"></span>
+    </div>
+
+    <div class="card">
+      <p class="section-label" style="font-size:15px;color:var(--text);font-weight:600;">历史记录</p>
+      <div class="filters">
+        <select id="ph-history-company" onchange="renderPhHistory()" style="flex:1;">
+          <option value="全部">全部公司</option>
+          <option value="FIRSTONE">FIRSTONE</option>
+          <option value="CS FIRSTONE">CS FIRSTONE</option>
+          <option value="TONGPOPO">TONGPOPO</option>
+        </select>
+        <input id="ph-history-month" type="month" style="flex:1;" onchange="renderPhHistory()" />
+      </div>
+      <div id="ph-history-list"></div>
+    </div>
+  </div>
 </div>
 
 <script src="js/config.js"></script>
@@ -397,6 +443,7 @@
 <script src="js/loans.js"></script>
 <script src="js/attendance.js"></script>
 <script src="js/leave.js"></script>
+<script src="js/phRecords.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

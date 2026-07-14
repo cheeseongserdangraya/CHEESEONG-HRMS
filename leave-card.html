@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CHEESEONG HRMS · 员工假期卡片</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style>
+  @media print {
+    .no-print{ display:none !important; }
+    body{ background:#fff; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" style="max-width:640px;">
+  <div class="top-actions no-print">
+    <div class="user-bar"><span id="user-name">加载中…</span><span class="badge" id="user-role-badge"></span></div>
+    <button class="secondary small" onclick="signOut()">登出</button>
+  </div>
+  <h1>员工假期卡片</h1>
+  <p class="subtitle no-print">选员工、选月份,生成给员工看的假期卡片。做好之后截图,或按 Cmd/Ctrl+P 存成 PDF 发给员工。</p>
+
+  <div class="card no-print">
+    <div class="grid">
+      <select id="card-company" onchange="populateCardEmployeeSelect()">
+        <option value="全部">全部公司</option>
+        <option value="FIRSTONE">FIRSTONE</option>
+        <option value="CS FIRSTONE">CS FIRSTONE</option>
+        <option value="TONGPOPO">TONGPOPO</option>
+      </select>
+      <select id="card-employee" onchange="renderCard()"></select>
+      <input id="card-month" type="month" onchange="renderCard()" />
+    </div>
+    <button class="secondary" onclick="window.print()">🖨️ 打印 / 存成 PDF</button>
+  </div>
+
+  <div id="card-output"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/employees.js"></script>
+<script src="js/leave.js"></script>
+<script src="js/phRecords.js"></script>
+<script>
+(async function(){
+  var profile = await requireAuth();
+  if(!profile) return;
+  document.getElementById('user-name').textContent = currentProfile.display_name || currentProfile.role;
+  var badge = document.getElementById('user-role-badge');
+  badge.textContent = currentProfile.role === 'admin' ? '管理员 Admin' : '老板 Boss (只读)';
+  badge.className = 'badge ' + (currentProfile.role==='admin' ? 'role-admin' : 'role-boss');
+
+  await Promise.all([fetchEmployees(), fetchLeaveRecords(), fetchPhRecords()]);
+  document.getElementById('card-month').value = new Date().toISOString().slice(0,7);
+  populateCardEmployeeSelect();
+})();
+
+function populateCardEmployeeSelect(){
+  var fc = document.getElementById('card-company').value;
+  var sel = document.getElementById('card-employee');
+  var active = employees.filter(function(e){ return (fc==='全部'||e.company===fc) && (e.status||'在职')==='在职'; });
+  active.sort(function(a,b){ return (a.company||'').localeCompare(b.company||'') || (a.nameEn||'').localeCompare(b.nameEn||''); });
+  sel.innerHTML = active.map(function(e){ return '<option value="'+e.id+'">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+' ('+esc(e.company)+')</option>'; }).join('');
+  if(active.length===0){ sel.innerHTML = '<option value="">没有在职员工</option>'; }
+  renderCard();
+}
+
+function renderCard(){
+  var empId = document.getElementById('card-employee').value;
+  var month = document.getElementById('card-month').value;
+  var container = document.getElementById('card-output');
+  if(!empId){ container.innerHTML = ''; return; }
+  var e = employees.find(function(x){ return x.id===empId; });
+  if(!e){ container.innerHTML = ''; return; }
+
+  var today = new Date().toISOString().slice(0,10);
+  var year = today.slice(0,4);
+  var alAccrued = accruedAnnualLeave(e, today);
+  var alUsed = annualLeaveUsed(e.id, year);
+  var alRemain = round2(alAccrued - alUsed);
+  var phAccrued = phLeaveAccrued(e.id);
+  var phUsed = phLeaveUsedAllTime(e.id);
+  var phRemain = round2(phAccrued - phUsed);
+
+  var monthRecords = month ? leaveRecords.filter(function(r){ return r.employeeId===e.id && (r.start||'').slice(0,7)===month; }) : [];
+  monthRecords.sort(function(a,b){ return (a.start||'').localeCompare(b.start||''); });
+
+  var html = '<div class="card">'
+    + '<p style="font-size:12px;color:var(--text-secondary);margin:0 0 2px;">'+esc(e.company)+'</p>'
+    + '<h1 style="margin:0 0 16px;">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+'</h1>'
+    + '<div class="stat-grid">'
+    + '<div class="stat-box"><p class="stat-label">年假 AL 剩余</p><p class="stat-value" style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+' 天</p></div>'
+    + '<div class="stat-box"><p class="stat-label">PH假期剩余</p><p class="stat-value" style="color:'+(phRemain<0?'var(--danger)':'var(--success)')+';">'+phRemain+' 天</p></div>'
+    + '</div>'
+    + '<p style="font-size:12px;color:var(--text-muted);margin:14px 0 0;">截至 '+today+' 累计:AL 已用 '+alUsed+' 天 / 累计 '+alAccrued+' 天;PH假期已用 '+phUsed+' 天 / 累积 '+phAccrued+' 天</p>'
+    + '</div>';
+
+  html += '<div class="card">'
+    + '<p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">'+(month||'该月')+' 请假记录</p>';
+  if(monthRecords.length===0){
+    html += '<div class="empty-state">这个月没有请假记录</div>';
+  } else {
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+      + '<tr style="color:var(--text-secondary);"><th style="text-align:left;padding:4px 6px 4px 0;">类型</th><th style="text-align:left;padding:4px 6px;">日期</th><th style="text-align:right;padding:4px 6px;">天数</th></tr>';
+    monthRecords.forEach(function(r){
+      html += '<tr style="border-top:1px solid var(--border);">'
+        + '<td style="padding:6px;">'+esc(r.type)+'</td>'
+        + '<td style="padding:6px;">'+esc(r.start)+(r.end&&r.end!==r.start?' ~ '+esc(r.end):'')+'</td>'
+        + '<td style="padding:6px;text-align:right;">'+r.days+'</td>'
+        + '</tr>';
+    });
+    html += '</table>';
+  }
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+</script>
+</body>
+</html>

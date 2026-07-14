@@ -68,6 +68,11 @@ var CARRY_FIELD_MAP = {
   employeeId:'employee_id', fromYear:'from_year', toYear:'to_year', days:'days'
 };
 
+var PH_FIELD_MAP = {
+  employeeId:'employee_id', company:'company', batchMonth:'batch_month',
+  description:'description', days:'days', choice:'choice'
+};
+
 // boss 账号:隐藏/停用所有新增/编辑/删除相关的表单与按钮
 function applyRoleUI(){
   document.getElementById('user-name').textContent = currentProfile.display_name || currentProfile.role;
@@ -78,7 +83,7 @@ function applyRoleUI(){
   if(isAdmin()) return;
 
   document.getElementById('boss-hint').style.display = 'block';
-  ['emp-form-card','mc-form-card','loan-form-card','late-form-card','ot-form-card','leave-form-card','carry-card']
+  ['emp-form-card','mc-form-card','loan-form-card','late-form-card','ot-form-card','leave-form-card','carry-card','ph-form-card']
     .forEach(function(id){ var el = document.getElementById(id); if(el) el.style.display = 'none'; });
   var payBtn = document.getElementById('btn-pay-save');
   if(payBtn) payBtn.style.display = 'none';

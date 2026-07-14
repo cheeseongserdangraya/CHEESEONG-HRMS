@@ -224,6 +224,20 @@ create table public.leave_carry (
 );
 
 -- ============================================================
+-- 9. ph_records PH假期换钱/换假期记录
+-- ============================================================
+create table public.ph_records (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  company text,
+  batch_month text not null,        -- 'YYYY-MM',这批PH对应哪个年月
+  description text,                 -- 例如"国庆日调假"
+  days numeric not null default 1,
+  choice text not null check (choice in ('cash','leave')),  -- 'cash'=换钱, 'leave'=换假期
+  created_at timestamptz not null default now()
+);
+
+-- ============================================================
 -- RLS:所有业务表一律 admin 全权限、boss 只读
 -- ============================================================
 do $$
@@ -232,7 +246,7 @@ declare
 begin
   foreach t in array array[
     'employees','payroll_records','mc_claims','loan_records',
-    'attendance_late','attendance_ot','leave_records','leave_carry'
+    'attendance_late','attendance_ot','leave_records','leave_carry','ph_records'
   ]
   loop
     execute format('alter table public.%I enable row level security;', t);

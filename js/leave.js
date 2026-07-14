@@ -159,6 +159,14 @@ function updateLeaveBalancePreview(){
       + '<br/><span style="color:var(--text-muted);">政策参考:直属亲属(配偶/父母/子女/岳父母/家公家婆)3天;兄弟姐妹/公婆/外公外婆2天;超过部分要自己核对,手动改成无薪假或提醒扣年假。须提供死亡证明书。</span>';
     return;
   }
+  if(type==='PH假期'){
+    var phAccrued = phLeaveAccrued(employeeId);
+    var phUsed = phLeaveUsedAllTime(employeeId, editingLeaveId);
+    var phRemain = round2(phAccrued - phUsed - thisDays);
+    el.innerHTML = 'PH假期累积(来自「PH假期」分页记录)<b>'+phAccrued+'</b> 天,已用 <b>'+phUsed+'</b> 天,这次请 <b>'+thisDays+'</b> 天,之后剩余 <b style="color:'+(phRemain<0?'var(--danger)':'var(--success)')+';">'+phRemain+'</b> 天'
+      + (phRemain<0?' <span style="color:var(--danger);">(超过累积的PH假期,先去「PH假期」分页补记录)</span>':'');
+    return;
+  }
   if(type==='病假'){
     var mcEnt = mcLeaveEntitlement(emp, asOfDate);
     var mcUsed = daysForType(employeeId, '病假', year, editingLeaveId);
@@ -278,7 +286,7 @@ function renderLeaveList(){
   });
   order.sort(function(a,b){ return byEmployee[a].name.localeCompare(byEmployee[b].name); });
 
-  var typeColor = {'年假':'var(--success)','病假':'var(--warning)','紧急事假':'var(--accent)','无薪假':'var(--danger)','同情假':'var(--text-muted)','丧假':'var(--text-muted)','产假':'var(--accent)','陪产假':'var(--accent)','其他':'var(--text-secondary)'};
+  var typeColor = {'年假':'var(--success)','病假':'var(--warning)','紧急事假':'var(--accent)','无薪假':'var(--danger)','同情假':'var(--text-muted)','丧假':'var(--text-muted)','产假':'var(--accent)','陪产假':'var(--accent)','PH假期':'var(--success)','其他':'var(--text-secondary)'};
 
   var html = '';
   order.forEach(function(empId){
