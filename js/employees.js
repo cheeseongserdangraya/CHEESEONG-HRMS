@@ -84,13 +84,12 @@ function renderEmpList(){
     groups[g].push(e);
   });
 
-  // 组的显示顺序固定:本地(有/无Payslip) → 尼泊尔 → 缅甸 → 其他国籍 → 兼职(永远最后)
-  var GROUP_ORDER = ['本地员工 - 有 Payslip', '本地员工 - 无 Payslip', '尼泊尔员工', '缅甸员工'];
+  // 组的显示顺序固定:本地-有Payslip → 本地-无Payslip → 尼泊尔 → 兼职 → 缅甸
+  var GROUP_ORDER = ['本地员工 - 有 Payslip', '本地员工 - 无 Payslip', '尼泊尔员工', '兼职 Part-time (时薪)', '缅甸员工'];
   function groupRank(g){
     var idx = GROUP_ORDER.indexOf(g);
     if(idx>-1) return idx;
-    if(g.indexOf('兼职')===0) return 999;
-    return GROUP_ORDER.length; // 没列到的国籍(例如"其他"),排在缅甸后面、兼职前面
+    return GROUP_ORDER.length; // 没列到的国籍(例如"其他"),排在最后
   }
   order.sort(function(a,b){ return groupRank(a)-groupRank(b); });
 
