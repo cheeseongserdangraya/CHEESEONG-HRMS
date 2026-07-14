@@ -338,7 +338,20 @@ function renderLeaveOverview(){
   });
   var container = document.getElementById('leave-overview');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无员工</div>'; return; }
-  list.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
+
+  var COMPANY_ORDER = {'FIRSTONE':0, 'CS FIRSTONE':1, 'TONGPOPO':2};
+  var NAT_ORDER = {'本地':0, '尼泊尔':1, '缅甸':2};
+  function natRank(nat){ return NAT_ORDER[nat]!==undefined ? NAT_ORDER[nat] : 99; }
+  list.sort(function(a,b){
+    if(fc==='全部'){
+      var ca = COMPANY_ORDER[a.company]!==undefined ? COMPANY_ORDER[a.company] : 99;
+      var cb = COMPANY_ORDER[b.company]!==undefined ? COMPANY_ORDER[b.company] : 99;
+      if(ca!==cb) return ca-cb;
+    }
+    var na = natRank(a.nationality), nb = natRank(b.nationality);
+    if(na!==nb) return na-nb;
+    return (a.nameEn||'').localeCompare(b.nameEn||'');
+  });
 
   var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th>'
     + '<th>AL 已用/累计/剩余</th><th>MC 已用/额度/剩余</th><th>同情假 已用/额度/剩余</th><th>丧假 已用</th>'
@@ -368,7 +381,7 @@ function renderLeaveOverview(){
     var mcClaimUsed = mcClaims.filter(function(c){ return c.employeeId===e.id && (c.date||'').slice(0,4)===year; }).reduce(function(s,c){ return s+c.claimAmount; }, 0);
 
     html += '<tr>'
-      + '<td style="font-weight:500;white-space:nowrap;">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+'</td>'
+      + '<td style="font-weight:500;white-space:nowrap;">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+' <span style="color:var(--text-muted);font-weight:400;font-size:11px;">('+esc(e.nationality||'其他')+')</span></td>'
       + '<td>'+esc(e.company)+(isMyanmarEmployee(e)?' <span style="color:var(--warning);font-size:11px;">(缅甸-全算无薪)</span>':'')+'</td>'
       + '<td style="white-space:nowrap;">'+alUsed+' / '+alAccrued+' / <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b></td>'
       + '<td style="white-space:nowrap;">'+mcUsedDays+' / '+mcEnt+' / <b style="color:'+(mcRemainDays<0?'var(--danger)':'var(--success)')+';">'+mcRemainDays+'</b></td>'
