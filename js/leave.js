@@ -454,7 +454,7 @@ function renderCarryList(){
 
   if(rows.length===0){ container.innerHTML = '<div class="empty-state">'+year+'年底没有员工有剩余年假</div>'; return; }
 
-  var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th><th>'+year+'年底剩余</th><th>建议结转(封顶5天)</th><th>会作废</th><th>实际结转到'+nextYear+'年</th></tr>';
+  var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th><th style="text-align:right;">'+year+'年底剩余</th><th style="text-align:right;">建议结转(封顶5天)</th><th style="text-align:right;">会作废</th><th>实际结转到'+nextYear+'年</th></tr>';
   rows.forEach(function(r, i){
     var current = carryInDays(r.e.id, nextYear) || r.suggested;
     var dis = isAdmin() ? '' : 'disabled';
