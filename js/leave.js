@@ -363,6 +363,7 @@ function renderLeaveOverview(){
 
   var html = '<table class="pay-table"><tr><th>姓名</th><th>公司</th>'
     + '<th>AL 已用/累计/剩余</th><th>MC 已用/额度/剩余</th><th>同情假 已用/额度/剩余</th><th>丧假 已用</th>'
+    + '<th>PH假期 已用/累积/剩余</th>'
     + '<th>EL 已用</th><th>ML 已用</th><th>PL 已用</th><th>无薪假</th><th>医疗费报销 RM</th></tr>';
   list.forEach(function(e){
     var alAccrued = accruedAnnualLeave(e, today);
@@ -378,6 +379,10 @@ function renderLeaveOverview(){
     var clRemainDays = round2(clEnt - clUsedDays);
 
     var bvUsedDays = leaveDaysForType(e.id, '丧假', year); // 丧假不设额度,只记录天数
+
+    var phAccruedDays = phLeaveAccrued(e.id);
+    var phUsedDays = phLeaveUsedAllTime(e.id);
+    var phRemainDays = round2(phAccruedDays - phUsedDays);
 
     var elUsedDays = leaveDaysForType(e.id, '紧急事假', year);
     var mlUsedDays = leaveDaysForType(e.id, '产假', year);
@@ -395,6 +400,7 @@ function renderLeaveOverview(){
       + '<td style="white-space:nowrap;">'+mcUsedDays+' / '+mcEnt+' / <b style="color:'+(mcRemainDays<0?'var(--danger)':'var(--success)')+';">'+mcRemainDays+'</b></td>'
       + '<td style="white-space:nowrap;">'+clUsedDays+' / '+clEnt+' / <b style="color:'+(clRemainDays<0?'var(--danger)':'var(--success)')+';">'+clRemainDays+'</b></td>'
       + '<td>'+bvUsedDays+'</td>'
+      + '<td style="white-space:nowrap;">'+phUsedDays+' / '+phAccruedDays+' / <b style="color:'+(phRemainDays<0?'var(--danger)':'var(--success)')+';">'+phRemainDays+'</b></td>'
       + '<td>'+elUsedDays+'</td>'
       + '<td>'+mlUsedDays+'</td>'
       + '<td>'+plUsedDays+'</td>'
