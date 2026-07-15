@@ -90,6 +90,15 @@ function renderPayTable(){
     updateStats();
     return;
   }
+
+  // 组的显示顺序固定,跟「员工资料」页面一致:本地-有Payslip → 本地-无Payslip → 尼泊尔 → 兼职 → 缅甸
+  var GROUP_ORDER = ['本地员工 - 有 Payslip', '本地员工 - 无 Payslip', '尼泊尔员工', '兼职 Part-time (时薪)', '缅甸员工'];
+  function groupRank(g){
+    var idx = GROUP_ORDER.indexOf(g);
+    return idx>-1 ? idx : GROUP_ORDER.length;
+  }
+  groupKeys.sort(function(a,b){ return groupRank(a)-groupRank(b); });
+
   var html = '';
   groupKeys.forEach(function(label){
     var gid = sanitizeId(label);
