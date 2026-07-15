@@ -27,7 +27,7 @@ function renderPhChecklist(){
   var fc = document.getElementById('ph-checklist-company').value;
   var list = employees.filter(function(e){
     var okC = fc==='全部' || e.company===fc;
-    return okC && (e.status||'在职')==='在职';
+    return okC && (e.status||'在职')==='在职' && !e.noBenefits;
   });
   var container = document.getElementById('ph-checklist');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无在职员工</div>'; return; }

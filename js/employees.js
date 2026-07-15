@@ -16,11 +16,11 @@ function toggleSalaryFields(){
 }
 
 function clearForm(){
-  Object.keys(EMP_FIELD_MAP).forEach(function(k){
-    if(k==='status') return;
+  Object.keys(EMP_DOM_ID).forEach(function(k){
     var el = document.getElementById(fmapId(k));
     if(el) el.value = (k==='gender'?'男': k==='nationality'?'本地': k==='company'?'FIRSTONE': k==='employeeType'?'正式员工': k==='hasPayslip'?'有Payslip': k==='paymentMethod'?'银行转账':'');
   });
+  document.getElementById('f-nobenefits').checked = false;
   toggleSalaryFields();
 }
 
@@ -43,6 +43,7 @@ function startEdit(e){
     var el = document.getElementById(fmapId(k));
     if(el) el.value = e[k]!==undefined && e[k]!==null ? e[k] : '';
   });
+  document.getElementById('f-nobenefits').checked = !!e.noBenefits;
   document.getElementById('form-title').textContent = '编辑员工资料 - ' + (e.nameEn||e.nameCn);
   document.getElementById('btn-add').textContent = '保存修改';
   document.getElementById('btn-cancel-edit').style.display = 'inline-block';
@@ -112,7 +113,7 @@ function renderEmpList(){
     html += '<div class="emp-row-head" onclick="toggleRow(\''+e.id+'\')">'
       + '<div class="avatar">'+(numLabel!==undefined ? numLabel : esc(e.nameEn||e.nameCn||'?').slice(0,1).toUpperCase())+'</div>'
       + '<div style="flex:1;min-width:0;">'
-      + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span></p>'
+      + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span>'+(e.noBenefits?' <span class="badge role-boss" style="font-size:10px;">人头/无福利</span>':'')+'</p>'
       + '<p class="emp-meta"><b style="color:var(--text-secondary);">'+esc(e.company)+'</b> · '+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
       + '</div>'
       + '<span class="badge '+(e.status==='离职'?'inactive':'active')+'">'+(e.status||'在职')+'</span>'
@@ -220,6 +221,7 @@ async function submitForm(){
     var v = el.value;
     data[k] = (k==='basicSalary'||k==='allowance'||k==='hourlyRate'||k==='annualLeave') ? (Number(v)||0) : (v.trim ? v.trim() : v);
   });
+  data.noBenefits = document.getElementById('f-nobenefits').checked;
 
   if(editingId){
     var row = objToRow(EMP_FIELD_MAP, data);

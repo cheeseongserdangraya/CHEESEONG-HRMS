@@ -11,7 +11,7 @@ async function fetchLoanRecords(){
 function populateLoanEmployeeSelect(){
   var company = document.getElementById('loan-company').value;
   var sel = document.getElementById('loan-employee');
-  var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职'; });
+  var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职' && !e.noBenefits; });
   sel.innerHTML = active.map(function(e){ return '<option value="'+e.id+'">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+'</option>'; }).join('');
   if(active.length===0){ sel.innerHTML = '<option value="">该公司暂无在职员工</option>'; }
   updateLoanBalancePreview();

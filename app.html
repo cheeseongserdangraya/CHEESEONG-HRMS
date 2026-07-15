@@ -108,6 +108,11 @@
         <input id="f-pcb" placeholder="PCB 号码" />
       </div>
 
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);margin-bottom:16px;cursor:pointer;">
+        <input type="checkbox" id="f-nobenefits" style="width:auto;" />
+        人头员工(不享有假期/MC/借支等福利,只会出现在薪水计算)
+      </label>
+
       <button id="btn-add" onclick="submitForm()">+ 新增员工</button>
       <button class="secondary" id="btn-cancel-edit" style="display:none;" onclick="stopEdit()">取消</button>
       <span class="msg" id="emp-msg"></span>

@@ -20,7 +20,7 @@ async function fetchLeaveRecords(){
 function populateLeaveEmployeeSelect(){
   var company = document.getElementById('leave-company').value;
   var sel = document.getElementById('leave-employee');
-  var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职'; });
+  var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职' && !e.noBenefits; });
   sel.innerHTML = active.map(function(e){ return '<option value="'+e.id+'">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+'</option>'; }).join('');
   if(active.length===0){ sel.innerHTML = '<option value="">该公司暂无在职员工</option>'; }
   updateLeaveBalancePreview();
@@ -342,7 +342,7 @@ function renderLeaveOverview(){
   var today = new Date().toISOString().slice(0,10);
   var list = employees.filter(function(e){
     var okC = fc==='全部' || e.company===fc;
-    return okC && (e.status||'在职')==='在职' && e.employeeType!=='兼职';
+    return okC && (e.status||'在职')==='在职' && !e.noBenefits && e.employeeType!=='兼职';
   });
   var container = document.getElementById('leave-overview');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无员工</div>'; return; }
@@ -437,7 +437,7 @@ function renderCarryList(){
   var nextYear = (Number(year)+1).toString();
   var list = employees.filter(function(e){
     var okC = fc==='全部' || e.company===fc;
-    return okC && (e.status||'在职')==='在职' && e.employeeType!=='兼职';
+    return okC && (e.status||'在职')==='在职' && !e.noBenefits && e.employeeType!=='兼职';
   });
   var container = document.getElementById('carry-list');
   if(list.length===0){ container.innerHTML = '<div class="empty-state">暂无员工</div>'; return; }
