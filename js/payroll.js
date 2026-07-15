@@ -1,6 +1,19 @@
 // 薪水计算模块
 var payrollGroups = {};
 var payrollSavedRowIds = {}; // employeeId -> 已存在的 payroll_records.id(用来 update 而不是 insert)
+var payrollLoadedKey = null; // 目前内存里 payrollGroups 对应的 "公司|月份",用来判断切分页要不要重新抓资料库
+
+// 切回「薪水计算」分页时用:公司/月份没换的话就不重新抓资料库,保留还没存档的编辑
+function showPayrollTab(){
+  var company = document.getElementById('pay-company').value;
+  var month = document.getElementById('pay-month').value;
+  var curKey = company + '|' + month;
+  if(payrollLoadedKey===curKey && Object.keys(payrollGroups).length>0){
+    renderPayTable();
+  } else {
+    loadPayroll();
+  }
+}
 
 function mcAmountForMonth(employeeId, month){
   return round2(mcClaims.filter(function(c){ return c.employeeId===employeeId && (c.date||'').slice(0,7)===month; })
@@ -54,6 +67,7 @@ async function loadPayroll(){
       });
     }
   });
+  payrollLoadedKey = company + '|' + month;
   renderPayTable();
 }
 

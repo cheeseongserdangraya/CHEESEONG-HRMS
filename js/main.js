@@ -16,7 +16,7 @@ function switchTab(tab){
   document.getElementById('tab-leave').classList.toggle('active', tab==='leave');
   document.getElementById('tab-ph').classList.toggle('active', tab==='ph');
   if(tab==='emp') renderEmpList();
-  if(tab==='pay') loadPayroll();
+  if(tab==='pay') showPayrollTab();
   if(tab==='mc'){ populateMcEmployeeSelect(); renderMcList(); }
   if(tab==='loan'){ populateLoanEmployeeSelect(); renderLoanList(); }
   if(tab==='att'){ populateLateEmployeeSelect(); renderLateList(); populateOtEmployeeSelect(); renderOtList(); }
