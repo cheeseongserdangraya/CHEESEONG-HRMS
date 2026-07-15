@@ -108,6 +108,7 @@ create table public.payroll_records (
   allowance numeric default 0,
   ph_days numeric default 0,
   ot_hours numeric default 0,
+  ot_amount_override numeric,       -- 留空(null)=照 底薪/26/10×小时×1.5 公式算;有填值=直接用这个金额,不套公式
   team_bonus numeric default 0,
   commission_sharing numeric default 0,
   bonus numeric default 0,

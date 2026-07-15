@@ -59,6 +59,7 @@ async function loadPayroll(){
         basicSalary: (s.basicSalary!==undefined && s.basicSalary!==null) ? s.basicSalary : e.basicSalary,
         allowance: hasSaved ? (s.allowance||0) : (e.allowance||0),
         phDays: s.phDays||0, otHours: s.otHours||0,
+        otAmountOverride: (s.otAmountOverride!==undefined && s.otAmountOverride!==null) ? s.otAmountOverride : null,
         teamBonus: s.teamBonus||0, commissionSharing: s.commissionSharing||0,
         bonus: s.bonus||0, advance: loanRepay,
         epfSocso: s.epfSocso||0, pcb: s.pcb||0, mcClaim: mcClaim,
@@ -72,7 +73,23 @@ async function loadPayroll(){
 }
 
 function phAmount(row){ return round2(row.basicSalary/26 * (Number(row.phDays)||0)); }
-function otAmount(row){ return round2(row.basicSalary/26/10 * (Number(row.otHours)||0) * 1.5); }
+function otAmount(row){
+  if(row.otAmountOverride!==null && row.otAmountOverride!==undefined) return round2(row.otAmountOverride);
+  return round2(row.basicSalary/26/10 * (Number(row.otHours)||0) * 1.5);
+}
+function otManual(row){ return row.otAmountOverride!==null && row.otAmountOverride!==undefined; }
+
+function toggleOtManual(gid, i){
+  if(!isAdmin()) return;
+  var label = findGroupByGid(gid);
+  var row = payrollGroups[label].rows[i];
+  if(otManual(row)){
+    row.otAmountOverride = null; // 切回小时公式
+  } else {
+    row.otAmountOverride = otAmount(row); // 用目前算出的金额当起始值,方便她再自己微调
+  }
+  renderPayTable();
+}
 function tscAmount(row){ return round2((Number(row.teamBonus)||0) + (Number(row.commissionSharing)||0)); }
 function hourlyTotal(row){ return round2((Number(row.hourlyRate)||0) * (Number(row.hours)||0)); }
 function unpaidDeduction(row){ return round2(row.basicSalary/26 * (Number(row.unpaidDays)||0)); }
@@ -145,8 +162,14 @@ function renderPayTable(){
           + '<td>'+numInput(gid,i,'allowance',row.allowance)+'</td>'
           + '<td>'+numInput(gid,i,'phDays',row.phDays,55)+'</td>'
           + '<td style="color:var(--text-secondary);white-space:nowrap;" id="phamt-'+gid+'-'+i+'">'+fmt(phAmount(row))+'</td>'
-          + '<td>'+numInput(gid,i,'otHours',row.otHours,55)+(row.otDaysLogged>0?'<div style="font-size:11px;color:var(--accent);white-space:nowrap;">打卡记录:'+row.otDaysLogged+'天有OT</div>':'')+'</td>'
-          + '<td style="color:var(--text-secondary);white-space:nowrap;" id="otamt-'+gid+'-'+i+'">'+fmt(otAmount(row))+'</td>'
+          + '<td>'+(otManual(row)
+              ? '<span style="color:var(--text-muted);">-</span>'
+              : numInput(gid,i,'otHours',row.otHours,55)+(row.otDaysLogged>0?'<div style="font-size:11px;color:var(--accent);white-space:nowrap;">打卡记录:'+row.otDaysLogged+'天有OT</div>':''))+'</td>'
+          + '<td>'+(otManual(row)
+              ? numInput(gid,i,'otAmountOverride',row.otAmountOverride,70)
+              : '<span style="color:var(--text-secondary);white-space:nowrap;" id="otamt-'+gid+'-'+i+'">'+fmt(otAmount(row))+'</span>')
+            + (isAdmin() ? '<div><button type="button" class="secondary small" style="margin-top:4px;padding:2px 6px;font-size:10px;" onclick="toggleOtManual(\''+gid+'\','+i+')">'+(otManual(row)?'改回小时公式':'改手动金额')+'</button></div>' : '')
+            + '</td>'
           + '<td>'+numInput(gid,i,'teamBonus',row.teamBonus)+'</td>'
           + '<td>'+numInput(gid,i,'commissionSharing',row.commissionSharing)+'</td>'
           + '<td style="font-weight:500;white-space:nowrap;" id="tsc-'+gid+'-'+i+'">'+fmt(tscAmount(row))+'</td>'
@@ -274,4 +297,4 @@ async function savePayroll(){
   document.getElementById('pay-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
   setTimeout(function(){ document.getElementById('pay-msg').textContent=''; }, 2500);
 }
-var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','teamBonus','commissionSharing','bonus','epfSocso','pcb'];
+var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','epfSocso','pcb'];
