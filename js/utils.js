@@ -39,7 +39,7 @@ var EMP_FIELD_MAP = {
 };
 
 var PAYROLL_FIELD_MAP = {
-  employeeId:'employee_id', company:'company', month:'month',
+  employeeId:'employee_id', company:'company', month:'month', basicSalary:'basic_salary',
   allowance:'allowance', phDays:'ph_days', otHours:'ot_hours',
   teamBonus:'team_bonus', commissionSharing:'commission_sharing', bonus:'bonus',
   epfSocso:'epf_socso', pcb:'pcb', hours:'hours', notes:'notes'

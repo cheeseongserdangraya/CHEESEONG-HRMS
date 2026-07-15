@@ -104,6 +104,7 @@ create table public.payroll_records (
   employee_id uuid not null references public.employees(id) on delete cascade,
   company text,
   month text not null,              -- 'YYYY-MM'
+  basic_salary numeric,             -- 留空(null)=沿用员工资料的底薪;有填值=这个月手动覆盖(例如离职员工最后一个月)
   allowance numeric default 0,
   ph_days numeric default 0,
   ot_hours numeric default 0,

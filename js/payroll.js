@@ -42,7 +42,8 @@ async function loadPayroll(){
       });
     } else {
       payrollGroups[g].rows.push({
-        employeeId: e.id, name: e.nameEn, basicSalary: e.basicSalary,
+        employeeId: e.id, name: e.nameEn,
+        basicSalary: (s.basicSalary!==undefined && s.basicSalary!==null) ? s.basicSalary : e.basicSalary,
         allowance: hasSaved ? (s.allowance||0) : (e.allowance||0),
         phDays: s.phDays||0, otHours: s.otHours||0,
         teamBonus: s.teamBonus||0, commissionSharing: s.commissionSharing||0,
@@ -117,7 +118,7 @@ function renderPayTable(){
       rows.forEach(function(row, i){
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
-          + '<td>'+fmt(row.basicSalary)+'</td>'
+          + '<td>'+numInput(gid,i,'basicSalary',row.basicSalary,80)+'</td>'
           + '<td>'+numInput(gid,i,'allowance',row.allowance)+'</td>'
           + '<td>'+numInput(gid,i,'phDays',row.phDays,55)+'</td>'
           + '<td style="color:var(--text-secondary);white-space:nowrap;" id="phamt-'+gid+'-'+i+'">'+fmt(phAmount(row))+'</td>'
@@ -250,4 +251,4 @@ async function savePayroll(){
   document.getElementById('pay-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
   setTimeout(function(){ document.getElementById('pay-msg').textContent=''; }, 2500);
 }
-var PAYROLL_FIELDS_MONTHLY = ['allowance','phDays','otHours','teamBonus','commissionSharing','bonus','epfSocso','pcb'];
+var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','teamBonus','commissionSharing','bonus','epfSocso','pcb'];
