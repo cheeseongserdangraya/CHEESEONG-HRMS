@@ -51,7 +51,7 @@ table.pay-table th{text-align:left;padding:8px;color:var(--text-secondary);font-
 table.pay-table td{padding:5px;border-bottom:1px solid var(--border);}
 table.pay-table input{width:82px;padding:5px 6px;font-size:12px;}
 table.pay-table input.notes-input{width:110px;}
-.pay-table-wrap{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:4px;}
+.pay-table-wrap{display:inline-block;min-width:100%;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);padding:4px;}
 table.pay-table th{position:sticky;top:0;background:var(--surface-2);z-index:2;}
 table.pay-table td:first-child{position:sticky;left:0;background:var(--surface);z-index:1;}
 table.pay-table th:first-child{position:sticky;left:0;top:0;background:var(--surface-2);z-index:3;}
