@@ -112,7 +112,8 @@ create table public.payroll_records (
   team_bonus numeric default 0,
   commission_sharing numeric default 0,
   bonus numeric default 0,
-  other_adjustment numeric default 0, -- 不常见的临时调整(房租/犯错赔偿/上月补扣补发等),正数=加钱,负数=扣钱,配合备注栏写原因
+  other_adjustment numeric default 0, -- 不常见的临时调整(上月补扣补发等,真的会影响这个月实拿薪水的),正数=加钱,负数=扣钱,配合备注栏写原因
+  mistake_amount numeric default 0,   -- 员工犯错金额,纯粹记录给老板看,不影响净工资、也不计入公司总支出
   epf_socso numeric default 0,
   pcb numeric default 0,
   hours numeric default 0,          -- 兼职员工时数

@@ -62,7 +62,7 @@ async function loadPayroll(){
         phDays: s.phDays||0, otHours: s.otHours||0,
         otAmountOverride: (s.otAmountOverride!==undefined && s.otAmountOverride!==null) ? s.otAmountOverride : null,
         teamBonus: s.teamBonus||0, commissionSharing: s.commissionSharing||0,
-        bonus: s.bonus||0, otherAdjustment: s.otherAdjustment||0, advance: loanRepay,
+        bonus: s.bonus||0, otherAdjustment: s.otherAdjustment||0, mistakeAmount: s.mistakeAmount||0, advance: loanRepay,
         epfSocso: s.epfSocso||0, pcb: s.pcb||0, mcClaim: mcClaim,
         otDaysLogged: otDaysLogged, lateCount: lateCount, unpaidDays: unpaidDays,
         notes: s.notes||''
@@ -154,7 +154,7 @@ function renderPayTable(){
       });
       html += '</table></div>';
     } else {
-      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','其他调整(+/-)','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','MC报销(自动)','备注','净工资'];
+      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','MC报销(自动)','备注','净工资'];
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
       rows.forEach(function(row, i){
         html += '<tr>'
@@ -176,6 +176,7 @@ function renderPayTable(){
           + '<td style="font-weight:500;white-space:nowrap;" id="tsc-'+gid+'-'+i+'">'+fmt(tscAmount(row))+'</td>'
           + '<td>'+numInput(gid,i,'bonus',row.bonus)+'</td>'
           + '<td>'+numInput(gid,i,'otherAdjustment',row.otherAdjustment)+'</td>'
+          + '<td>'+numInput(gid,i,'mistakeAmount',row.mistakeAmount)+'</td>'
           + '<td style="color:var(--danger);white-space:nowrap;">'+(row.advance>0?'-'+fmt(row.advance):'-')+'</td>'
           + '<td>'+numInput(gid,i,'epfSocso',row.epfSocso)+'</td>'
           + '<td>'+numInput(gid,i,'pcb',row.pcb)+'</td>'
@@ -299,4 +300,4 @@ async function savePayroll(){
   document.getElementById('pay-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
   setTimeout(function(){ document.getElementById('pay-msg').textContent=''; }, 2500);
 }
-var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','otherAdjustment','epfSocso','pcb'];
+var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','otherAdjustment','mistakeAmount','epfSocso','pcb'];

@@ -42,7 +42,7 @@ var PAYROLL_FIELD_MAP = {
   employeeId:'employee_id', company:'company', month:'month', basicSalary:'basic_salary',
   allowance:'allowance', phDays:'ph_days', otHours:'ot_hours', otAmountOverride:'ot_amount_override',
   teamBonus:'team_bonus', commissionSharing:'commission_sharing', bonus:'bonus',
-  otherAdjustment:'other_adjustment',
+  otherAdjustment:'other_adjustment', mistakeAmount:'mistake_amount',
   epfSocso:'epf_socso', pcb:'pcb', hours:'hours', notes:'notes'
 };
 
