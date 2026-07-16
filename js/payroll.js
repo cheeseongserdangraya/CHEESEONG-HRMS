@@ -140,7 +140,7 @@ function renderPayTable(){
     html += '<div style="margin-bottom:20px;">';
     html += '<p style="font-size:13px;font-weight:600;margin:0 0 8px;">'+esc(label)+' <span style="color:var(--text-muted);font-weight:400;">('+rows.length+'人)</span></p>';
     if(group.isHourly){
-      html += '<table class="pay-table"><tr><th>姓名</th><th>时薪</th><th>时数</th><th>MC报销(自动)</th><th>预支/借支(自动)</th><th>备注</th><th>总薪水</th></tr>';
+      html += '<div class="pay-table-wrap"><table class="pay-table"><tr><th>姓名</th><th>时薪</th><th>时数</th><th>MC报销(自动)</th><th>预支/借支(自动)</th><th>备注</th><th>总薪水</th></tr>';
       rows.forEach(function(row, i){
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
@@ -152,10 +152,10 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,true))+'</td>'
           + '</tr>';
       });
-      html += '</table>';
+      html += '</table></div>';
     } else {
       var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','MC报销(自动)','备注','净工资'];
-      html += '<table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+      html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
       rows.forEach(function(row, i){
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
@@ -185,7 +185,7 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
           + '</tr>';
       });
-      html += '</table>';
+      html += '</table></div>';
     }
     html += '</div>';
   });
