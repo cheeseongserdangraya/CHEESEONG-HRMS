@@ -109,27 +109,31 @@ async function delLoanRecord(id){
 function renderLoanList(){
   var fc = document.getElementById('loan-filter-company').value;
   var fs = document.getElementById('loan-filter-status').value;
+  var fm = document.getElementById('loan-filter-month').value;
   var byEmployee = {};
   var order = [];
   loanRecords.forEach(function(r){
     if(fc!=='全部' && r.company!==fc) return;
+    if(fm && (r.date||'').slice(0,7)!==fm) return;
     var emp = employees.find(function(e){ return e.id===r.employeeId; });
     var name = emp ? (emp.nameEn||emp.nameCn) : '(已删除员工)';
     if(!byEmployee[r.employeeId]){ byEmployee[r.employeeId] = { name:name, company:r.company, records:[] }; order.push(r.employeeId); }
     byEmployee[r.employeeId].records.push(r);
   });
   order = order.filter(function(empId){
-    var balance = loanBalance(empId);
+    var balance = loanBalance(empId); // 尚欠/已还清是看全时段余额,不受月份筛选影响
     if(fs==='欠款') return balance>0;
     if(fs==='已还清') return balance<=0;
     return true;
   });
   order.sort(function(a,b){ return byEmployee[a].name.localeCompare(byEmployee[b].name); });
 
+  renderLoanSummary(order, byEmployee);
+
   var container = document.getElementById('loan-list');
   if(order.length===0){ container.innerHTML = '<div class="empty-state">暂无借支记录</div>'; return; }
 
-  var html = '';
+  var html = '<details><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-secondary);padding:8px 0;">📋 查看明细(点开才看得到)</summary>';
   order.forEach(function(empId){
     var g = byEmployee[empId];
     var balance = loanBalance(empId);
@@ -152,6 +156,7 @@ function renderLoanList(){
     });
     html += '</table></div>';
   });
+  html += '</details>';
   container.innerHTML = html;
 
   container.querySelectorAll('.loan-edit-btn').forEach(function(btn){
@@ -167,4 +172,25 @@ function renderLoanList(){
       delLoanRecord(id);
     });
   });
+}
+
+function renderLoanSummary(order, byEmployee){
+  var container = document.getElementById('loan-summary');
+  if(order.length===0){ container.innerHTML = ''; return; }
+
+  var html = '<p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">📊 汇总(依目前筛选的公司/员工/月份加总)</p>';
+  html += '<table class="pay-table"><tr><th>公司</th><th>姓名</th><th>借出合计</th><th>还款合计</th></tr>';
+  order.forEach(function(empId){
+    var g = byEmployee[empId];
+    var borrowTotal = round2(g.records.filter(function(r){ return r.type==='borrow'; }).reduce(function(s,r){ return s+r.amount; }, 0));
+    var repayTotal = round2(g.records.filter(function(r){ return r.type==='repay'; }).reduce(function(s,r){ return s+r.amount; }, 0));
+    html += '<tr>'
+      + '<td>'+esc(g.company)+'</td>'
+      + '<td style="font-weight:500;white-space:nowrap;">'+esc(g.name)+'</td>'
+      + '<td style="color:var(--danger);font-weight:500;">'+fmt(borrowTotal)+'</td>'
+      + '<td style="color:var(--success);font-weight:500;">'+fmt(repayTotal)+'</td>'
+      + '</tr>';
+  });
+  html += '</table>';
+  container.innerHTML = html;
 }

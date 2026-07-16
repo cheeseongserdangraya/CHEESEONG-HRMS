@@ -238,7 +238,9 @@
         <option value="欠款">仍有欠款</option>
         <option value="已还清">已还清</option>
       </select>
+      <input id="loan-filter-month" type="month" style="flex:1;" onchange="renderLoanList()" />
     </div>
+    <div id="loan-summary" style="margin-bottom:16px;"></div>
     <div id="loan-list"></div>
   </div>
 
