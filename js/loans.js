@@ -180,10 +180,13 @@ function renderLoanSummary(order, byEmployee){
 
   var html = '<p class="section-label" style="font-size:14px;color:var(--text);font-weight:600;">📊 汇总(依目前筛选的公司/员工/月份加总)</p>';
   html += '<table class="pay-table"><tr><th>公司</th><th>姓名</th><th>借出合计</th><th>还款合计</th></tr>';
+  var grandBorrow = 0, grandRepay = 0;
   order.forEach(function(empId){
     var g = byEmployee[empId];
     var borrowTotal = round2(g.records.filter(function(r){ return r.type==='borrow'; }).reduce(function(s,r){ return s+r.amount; }, 0));
     var repayTotal = round2(g.records.filter(function(r){ return r.type==='repay'; }).reduce(function(s,r){ return s+r.amount; }, 0));
+    grandBorrow += borrowTotal;
+    grandRepay += repayTotal;
     html += '<tr>'
       + '<td>'+esc(g.company)+'</td>'
       + '<td style="font-weight:500;white-space:nowrap;">'+esc(g.name)+'</td>'
@@ -191,6 +194,9 @@ function renderLoanSummary(order, byEmployee){
       + '<td style="color:var(--success);font-weight:500;">'+fmt(repayTotal)+'</td>'
       + '</tr>';
   });
+  html += '<tr style="border-top:2px solid var(--border);"><td></td><td style="font-weight:700;">总计 Total</td>'
+    + '<td style="color:var(--danger);font-weight:700;">'+fmt(round2(grandBorrow))+'</td>'
+    + '<td style="color:var(--success);font-weight:700;">'+fmt(round2(grandRepay))+'</td></tr>';
   html += '</table>';
   container.innerHTML = html;
 }
