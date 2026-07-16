@@ -36,6 +36,7 @@ async function loadPayroll(){
   });
 
   var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职'; });
+  active.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
   payrollGroups = {};
   active.forEach(function(e){
     var g = groupLabel(e);
