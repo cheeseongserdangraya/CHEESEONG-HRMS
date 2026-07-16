@@ -112,6 +112,7 @@ create table public.payroll_records (
   team_bonus numeric default 0,
   commission_sharing numeric default 0,
   bonus numeric default 0,
+  other_adjustment numeric default 0, -- 不常见的临时调整(房租/犯错赔偿/上月补扣补发等),正数=加钱,负数=扣钱,配合备注栏写原因
   epf_socso numeric default 0,
   pcb numeric default 0,
   hours numeric default 0,          -- 兼职员工时数
