@@ -154,7 +154,7 @@ function renderPayTable(){
       });
       html += '</table></div>';
     } else {
-      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','MC报销(自动)','备注','净工资'];
+      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资'];
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
       rows.forEach(function(row, i){
         html += '<tr>'
@@ -175,13 +175,13 @@ function renderPayTable(){
           + '<td>'+numInput(gid,i,'commissionSharing',row.commissionSharing)+'</td>'
           + '<td style="font-weight:500;white-space:nowrap;" id="tsc-'+gid+'-'+i+'">'+fmt(tscAmount(row))+'</td>'
           + '<td>'+numInput(gid,i,'bonus',row.bonus)+'</td>'
-          + '<td>'+numInput(gid,i,'otherAdjustment',row.otherAdjustment)+'</td>'
-          + '<td>'+numInput(gid,i,'mistakeAmount',row.mistakeAmount)+'</td>'
           + '<td style="color:var(--danger);white-space:nowrap;">'+(row.advance>0?'-'+fmt(row.advance):'-')+'</td>'
           + '<td>'+numInput(gid,i,'epfSocso',row.epfSocso)+'</td>'
           + '<td>'+numInput(gid,i,'pcb',row.pcb)+'</td>'
           + '<td style="color:var(--danger);white-space:nowrap;" id="csback-'+gid+'-'+i+'">-'+fmt(row.commissionSharing)+'</td>'
           + '<td style="color:var(--danger);white-space:nowrap;">'+(row.unpaidDays>0?'-'+fmt(unpaidDeduction(row))+' ('+row.unpaidDays+'天)':'-')+'</td>'
+          + '<td>'+numInput(gid,i,'otherAdjustment',row.otherAdjustment)+'</td>'
+          + '<td>'+numInput(gid,i,'mistakeAmount',row.mistakeAmount)+'</td>'
           + '<td style="color:var(--success);white-space:nowrap;">'+(row.mcClaim>0?'+'+fmt(row.mcClaim):'-')+'</td>'
           + '<td><input type="text" class="notes-input" data-g="'+gid+'" data-i="'+i+'" data-f="notes" value="'+esc(row.notes)+'" onchange="updateCell(this)" '+notesDis+' /></td>'
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
