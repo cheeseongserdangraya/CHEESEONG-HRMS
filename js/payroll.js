@@ -2,6 +2,7 @@
 var payrollGroups = {};
 var payrollSavedRowIds = {}; // employeeId -> 已存在的 payroll_records.id(用来 update 而不是 insert)
 var payrollLoadedKey = null; // 目前内存里 payrollGroups 对应的 "公司|月份",用来判断切分页要不要重新抓资料库
+var payrollGroupOpen = {}; // gid -> 是否展开,预设全部收合,局部重新渲染(例如切OT手动金额)时要记得维持
 
 // 切回「薪水计算」分页时用:公司/月份没换的话就不重新抓资料库,保留还没存档的编辑
 function showPayrollTab(){
@@ -137,11 +138,15 @@ function renderPayTable(){
     var group = payrollGroups[label];
     var rows = group.rows;
     var notesDis = isAdmin() ? '' : 'disabled';
+    var isOpen = !!payrollGroupOpen[gid];
     html += '<div style="margin-bottom:20px;">';
-    html += '<p style="font-size:13px;font-weight:600;margin:0 0 8px;">'+esc(label)+' <span style="color:var(--text-muted);font-weight:400;">('+rows.length+'人)</span></p>';
+    html += '<details'+(isOpen?' open':'')+' ontoggle="payrollGroupOpen[\''+gid+'\']=this.open;">';
+    html += '<summary style="cursor:pointer;font-size:13px;font-weight:600;margin:0 0 8px;">'+esc(label)+' <span style="color:var(--text-muted);font-weight:400;">('+rows.length+'人)</span></summary>';
     if(group.isHourly){
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr><th>姓名</th><th>时薪</th><th>时数</th><th>MC报销(自动)</th><th>预支/借支(自动)</th><th>备注</th><th>总薪水</th></tr>';
+      var groupTotal = 0;
       rows.forEach(function(row, i){
+        groupTotal += computeNet(row, true);
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
           + '<td>'+fmt(row.hourlyRate)+'</td>'
@@ -152,11 +157,14 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,true))+'</td>'
           + '</tr>';
       });
+      html += '<tr><td colspan="6" style="text-align:right;font-weight:700;padding:8px;">TOTAL</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
       html += '</table></div>';
     } else {
       var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资'];
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+      var groupTotal = 0;
       rows.forEach(function(row, i){
+        groupTotal += computeNet(row, false);
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
           + '<td>'+numInput(gid,i,'basicSalary',row.basicSalary,80)+'</td>'
@@ -187,8 +195,10 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
           + '</tr>';
       });
+      html += '<tr><td colspan="20" style="text-align:right;font-weight:700;padding:8px;">TOTAL 净工资</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
       html += '</table></div>';
     }
+    html += '</details>';
     html += '</div>';
   });
   container.innerHTML = html;
@@ -216,6 +226,11 @@ function updateCell(inp){
     var tscEl = document.getElementById('tsc-'+gid+'-'+i); if(tscEl) tscEl.textContent = fmt(tscAmount(row));
     var csEl = document.getElementById('csback-'+gid+'-'+i); if(csEl) csEl.textContent = '-'+fmt(row.commissionSharing);
     var netEl2 = document.getElementById('net-'+gid+'-'+i); if(netEl2) netEl2.textContent = fmt(computeNet(row,false));
+  }
+  var groupTotalEl = document.getElementById('grouptotal-'+gid);
+  if(groupTotalEl){
+    var sum = group.rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
+    groupTotalEl.textContent = fmt(round2(sum));
   }
   updateStats();
 }
