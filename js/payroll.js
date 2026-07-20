@@ -139,9 +139,11 @@ function renderPayTable(){
     var rows = group.rows;
     var notesDis = isAdmin() ? '' : 'disabled';
     var isOpen = !!payrollGroupOpen[gid];
+    var summaryTotal = rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
     html += '<div style="margin-bottom:20px;">';
     html += '<details'+(isOpen?' open':'')+' ontoggle="payrollGroupOpen[\''+gid+'\']=this.open;">';
-    html += '<summary style="cursor:pointer;font-size:13px;font-weight:600;margin:0 0 8px;">'+esc(label)+' <span style="color:var(--text-muted);font-weight:400;">('+rows.length+'人)</span></summary>';
+    html += '<summary style="cursor:pointer;font-size:13px;font-weight:600;margin:0 0 8px;">'+esc(label)+' <span style="color:var(--text-muted);font-weight:400;">('+rows.length+'人)</span>'
+      + ' <span style="color:var(--text-secondary);font-weight:600;">· TOTAL <span id="summarytotal-'+gid+'">'+fmt(round2(summaryTotal))+'</span></span></summary>';
     if(group.isHourly){
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr><th>姓名</th><th>时薪</th><th>时数</th><th>MC报销(自动)</th><th>预支/借支(自动)</th><th>备注</th><th>总薪水</th></tr>';
       var groupTotal = 0;
@@ -227,11 +229,11 @@ function updateCell(inp){
     var csEl = document.getElementById('csback-'+gid+'-'+i); if(csEl) csEl.textContent = '-'+fmt(row.commissionSharing);
     var netEl2 = document.getElementById('net-'+gid+'-'+i); if(netEl2) netEl2.textContent = fmt(computeNet(row,false));
   }
+  var sum = group.rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
   var groupTotalEl = document.getElementById('grouptotal-'+gid);
-  if(groupTotalEl){
-    var sum = group.rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
-    groupTotalEl.textContent = fmt(round2(sum));
-  }
+  if(groupTotalEl) groupTotalEl.textContent = fmt(round2(sum));
+  var summaryTotalEl = document.getElementById('summarytotal-'+gid);
+  if(summaryTotalEl) summaryTotalEl.textContent = fmt(round2(sum));
   updateStats();
 }
 
