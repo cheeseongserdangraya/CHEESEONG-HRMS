@@ -464,16 +464,32 @@ function renderCarryList(){
       + '<td style="text-align:right;">'+r.remaining+' 天</td>'
       + '<td style="text-align:right;color:var(--success);">'+r.suggested+' 天</td>'
       + '<td style="text-align:right;color:'+(r.forfeited>0?'var(--danger)':'var(--text-muted)')+';">'+r.forfeited+' 天</td>'
-      + '<td><input type="number" step="0.5" class="carry-input" data-emp="'+r.e.id+'" data-from="'+year+'" data-to="'+nextYear+'" value="'+current+'" style="width:70px;" '+dis+' /></td>'
+      + '<td><input type="number" step="0.5" class="carry-input" data-emp="'+r.e.id+'" data-from="'+year+'" data-to="'+nextYear+'" value="'+current+'" style="width:70px;" '+dis+' oninput="this.dataset.dirty=1;this.style.borderColor=\'var(--accent)\';" /></td>'
       + '</tr>';
   });
   html += '</table>';
+  if(isAdmin()){
+    html += '<div style="margin-top:12px;display:flex;align-items:center;gap:10px;">'
+      + '<button onclick="confirmCarryUpdates()">确认更新结转天数</button>'
+      + '<span class="msg" id="carry-msg"></span>'
+      + '</div>'
+      + '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">改完上面的数字不会马上生效,要点「确认更新结转天数」才会真的存档、更新到员工假期总览。</p>';
+  }
   container.innerHTML = html;
+}
 
-  container.querySelectorAll('.carry-input').forEach(function(inp){
-    inp.addEventListener('change', async function(){
-      await setCarry(inp.getAttribute('data-emp'), inp.getAttribute('data-from'), inp.getAttribute('data-to'), Number(inp.value)||0);
-      renderLeaveOverview();
-    });
-  });
+async function confirmCarryUpdates(){
+  if(!isAdmin()) return;
+  var container = document.getElementById('carry-list');
+  var inputs = container.querySelectorAll('.carry-input');
+  var msg = document.getElementById('carry-msg');
+  if(msg) msg.textContent = '更新中…';
+  for(var idx=0; idx<inputs.length; idx++){
+    var inp = inputs[idx];
+    await setCarry(inp.getAttribute('data-emp'), inp.getAttribute('data-from'), inp.getAttribute('data-to'), Number(inp.value)||0);
+  }
+  renderLeaveOverview();
+  renderCarryList();
+  var newMsg = document.getElementById('carry-msg');
+  if(newMsg){ newMsg.textContent = '已更新 ' + new Date().toLocaleTimeString(); setTimeout(function(){ newMsg.textContent=''; }, 2500); }
 }
