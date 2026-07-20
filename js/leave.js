@@ -81,6 +81,7 @@ function accruedAnnualLeave(emp, asOfDate){
   // 按月累计,不是年初一次性给满 — 例如一年8天,到7月大概只累计了8*7/12天
   if(!emp) return 0;
   var d = asOfDate ? new Date(asOfDate) : new Date();
+  if(emp.joinDate && d < new Date(emp.joinDate)) return 0; // 查询的这个时间点员工还没入职,不可能有累计年假
   var full = annualLeaveEntitlement(emp, asOfDate);
   var joinYear = emp.joinDate ? Number((emp.joinDate||'').slice(0,4)) : d.getFullYear();
   var refYear = d.getFullYear();
