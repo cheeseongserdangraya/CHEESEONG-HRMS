@@ -162,11 +162,11 @@ function renderOtList(){
   order.forEach(function(empId){
     var g = byEmployee[empId];
     g.records.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-    html += '<div class="card">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    html += '<div class="card"><details>';
+    html += '<summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
       + '<p style="font-weight:600;font-size:14px;margin:0;">🕘 '+esc(g.name)+' <span style="color:var(--text-muted);font-weight:400;font-size:12px;">'+esc(g.company)+'</span></p>'
       + '<p style="font-weight:700;font-size:14px;margin:0;color:var(--accent);">共 '+g.records.length+' 天</p>'
-      + '</div>';
+      + '</summary>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
       + '<tr style="color:var(--text-secondary);"><th style="text-align:left;padding:4px 6px 4px 0;">日期</th><th style="text-align:left;padding:4px 6px;">打卡时间</th><th style="text-align:left;padding:4px 6px;">备注</th><th style="padding:4px 6px;"></th></tr>';
     g.records.forEach(function(r){
@@ -177,7 +177,7 @@ function renderOtList(){
         + '<td style="padding:6px;white-space:nowrap;">'+(isAdmin() ? '<button type="button" class="secondary small ot-edit-btn">编辑</button> <button type="button" class="secondary small ot-del-btn">删除</button>' : '')+'</td>'
         + '</tr>';
     });
-    html += '</table></div>';
+    html += '</table></details></div>';
   });
   container.innerHTML = html;
 
@@ -293,11 +293,11 @@ function renderLateList(){
   order.forEach(function(empId){
     var g = byEmployee[empId];
     g.records.sort(function(a,b){ return (b.date||'').localeCompare(a.date||''); });
-    html += '<div class="card">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    html += '<div class="card"><details>';
+    html += '<summary style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
       + '<p style="font-weight:600;font-size:14px;margin:0;">⏰ '+esc(g.name)+' <span style="color:var(--text-muted);font-weight:400;font-size:12px;">'+esc(g.company)+'</span></p>'
       + '<p style="font-weight:700;font-size:14px;margin:0;color:var(--warning);">共 '+g.records.length+' 次</p>'
-      + '</div>';
+      + '</summary>';
     html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
       + '<tr style="color:var(--text-secondary);"><th style="text-align:left;padding:4px 6px 4px 0;">日期</th><th style="text-align:left;padding:4px 6px;">打卡时间</th><th style="text-align:left;padding:4px 6px;">备注</th><th style="padding:4px 6px;"></th></tr>';
     g.records.forEach(function(r){
@@ -308,7 +308,7 @@ function renderLateList(){
         + '<td style="padding:6px;white-space:nowrap;">'+(isAdmin() ? '<button type="button" class="secondary small late-edit-btn">编辑</button> <button type="button" class="secondary small late-del-btn">删除</button>' : '')+'</td>'
         + '</tr>';
     });
-    html += '</table></div>';
+    html += '</table></details></div>';
   });
   container.innerHTML = html;
 
