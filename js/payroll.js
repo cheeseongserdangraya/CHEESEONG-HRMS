@@ -355,18 +355,23 @@ function renderCashList(){
 
 function updateStats(){
   renderCashList();
-  var count = 0, total = 0, cost = 0;
+  var count = 0, total = 0, cost = 0, totalBank = 0, totalCash = 0;
   Object.keys(payrollGroups).forEach(function(label){
     var group = payrollGroups[label];
     group.rows.forEach(function(row){
       count++;
-      total += computeNet(row, group.isHourly);
+      var net = computeNet(row, group.isHourly);
+      total += net;
       cost += totalCost(row, group.isHourly);
+      var emp = employees.find(function(e){ return e.id===row.employeeId; });
+      if(emp && emp.paymentMethod==='现金') totalCash += net; else totalBank += net;
     });
   });
   document.getElementById('stat-count').textContent = count;
   document.getElementById('stat-total').textContent = fmt(total);
   document.getElementById('stat-cost').textContent = fmt(cost);
+  document.getElementById('stat-total-bank').textContent = fmt(totalBank);
+  document.getElementById('stat-total-cash').textContent = fmt(totalCash);
 }
 
 async function savePayroll(){
