@@ -471,6 +471,7 @@ function renderCarryList(){
   if(isAdmin()){
     html += '<div style="margin-top:12px;display:flex;align-items:center;gap:10px;">'
       + '<button onclick="confirmCarryUpdates()">确认更新结转天数</button>'
+      + '<button class="secondary" onclick="renderCarryList()">还原(不要这次的修改)</button>'
       + '<span class="msg" id="carry-msg"></span>'
       + '</div>'
       + '<p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">改完上面的数字不会马上生效,要点「确认更新结转天数」才会真的存档、更新到员工假期总览。</p>';
