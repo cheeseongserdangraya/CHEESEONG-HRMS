@@ -95,6 +95,93 @@ function toggleOtManual(gid, i){
 function tscAmount(row){ return round2((Number(row.teamBonus)||0) + (Number(row.commissionSharing)||0)); }
 function hourlyTotal(row){ return round2((Number(row.hourlyRate)||0) * (Number(row.hours)||0)); }
 function unpaidDeduction(row){ return round2(row.basicSalary/26 * (Number(row.unpaidDays)||0)); }
+function sumField(rows, fn){ return round2(rows.reduce(function(s,r){ return s + (Number(fn(r))||0); }, 0)); }
+
+function renderHourlyTotalRow(gid, rows){
+  var hoursTotal = sumField(rows, function(r){ return r.hours; });
+  var mcTotal = sumField(rows, function(r){ return r.mcClaim; });
+  var advanceTotal = sumField(rows, function(r){ return r.advance; });
+  var netTotal = sumField(rows, function(r){ return computeNet(r, true); });
+  return '<tr style="border-top:2px solid var(--border);font-weight:700;">'
+    + '<td style="position:static;">TOTAL</td>'
+    + '<td>-</td>'
+    + '<td id="coltot-hours-'+gid+'">'+hoursTotal+'</td>'
+    + '<td id="coltot-mcClaim-'+gid+'" style="color:var(--success);">'+(mcTotal>0?'+'+fmt(mcTotal):'-')+'</td>'
+    + '<td id="coltot-advance-'+gid+'" style="color:var(--danger);">'+(advanceTotal>0?'-'+fmt(advanceTotal):'-')+'</td>'
+    + '<td>-</td>'
+    + '<td id="grouptotal-'+gid+'">'+fmt(netTotal)+'</td>'
+    + '</tr>';
+}
+
+function renderMonthlyTotalRow(gid, rows){
+  var csTotal = sumField(rows, function(r){ return r.commissionSharing; });
+  var advTotal = sumField(rows, function(r){ return r.advance; });
+  var unpaidTotal = sumField(rows, unpaidDeduction);
+  var mcTotal = sumField(rows, function(r){ return r.mcClaim; });
+  return '<tr style="border-top:2px solid var(--border);font-weight:700;">'
+    + '<td style="position:static;">TOTAL</td>'
+    + '<td id="coltot-basicSalary-'+gid+'">'+fmt(sumField(rows, function(r){ return r.basicSalary; }))+'</td>'
+    + '<td id="coltot-allowance-'+gid+'">'+fmt(sumField(rows, function(r){ return r.allowance; }))+'</td>'
+    + '<td>-</td>'
+    + '<td id="coltot-ph-'+gid+'">'+fmt(sumField(rows, phAmount))+'</td>'
+    + '<td>-</td>'
+    + '<td id="coltot-ot-'+gid+'">'+fmt(sumField(rows, otAmount))+'</td>'
+    + '<td id="coltot-teamBonus-'+gid+'">'+fmt(sumField(rows, function(r){ return r.teamBonus; }))+'</td>'
+    + '<td id="coltot-commissionSharing-'+gid+'">'+fmt(csTotal)+'</td>'
+    + '<td id="coltot-tsc-'+gid+'">'+fmt(sumField(rows, tscAmount))+'</td>'
+    + '<td id="coltot-bonus-'+gid+'">'+fmt(sumField(rows, function(r){ return r.bonus; }))+'</td>'
+    + '<td id="coltot-advance-'+gid+'" style="color:var(--danger);">'+(advTotal>0?'-'+fmt(advTotal):'-')+'</td>'
+    + '<td id="coltot-epfSocso-'+gid+'">'+fmt(sumField(rows, function(r){ return r.epfSocso; }))+'</td>'
+    + '<td id="coltot-pcb-'+gid+'">'+fmt(sumField(rows, function(r){ return r.pcb; }))+'</td>'
+    + '<td id="coltot-csback-'+gid+'" style="color:var(--danger);">-'+fmt(csTotal)+'</td>'
+    + '<td id="coltot-unpaid-'+gid+'" style="color:var(--danger);">'+(unpaidTotal>0?'-'+fmt(unpaidTotal):'-')+'</td>'
+    + '<td id="coltot-otherAdjustment-'+gid+'">'+fmt(sumField(rows, function(r){ return r.otherAdjustment; }))+'</td>'
+    + '<td id="coltot-mistakeAmount-'+gid+'">'+fmt(sumField(rows, function(r){ return r.mistakeAmount; }))+'</td>'
+    + '<td id="coltot-mcClaim-'+gid+'" style="color:var(--success);">'+(mcTotal>0?'+'+fmt(mcTotal):'-')+'</td>'
+    + '<td>-</td>'
+    + '<td id="grouptotal-'+gid+'">'+fmt(sumField(rows, function(r){ return computeNet(r, false); }))+'</td>'
+    + '</tr>';
+}
+
+function refreshGroupTotals(gid, group){
+  var rows = group.rows;
+  function upd(id, text){ var el = document.getElementById(id); if(el) el.textContent = text; }
+  if(group.isHourly){
+    upd('coltot-hours-'+gid, sumField(rows, function(r){ return r.hours; }));
+    var mcTotal = sumField(rows, function(r){ return r.mcClaim; });
+    upd('coltot-mcClaim-'+gid, mcTotal>0?'+'+fmt(mcTotal):'-');
+    var advanceTotal = sumField(rows, function(r){ return r.advance; });
+    upd('coltot-advance-'+gid, advanceTotal>0?'-'+fmt(advanceTotal):'-');
+    upd('grouptotal-'+gid, fmt(sumField(rows, function(r){ return computeNet(r,true); })));
+  } else {
+    upd('coltot-basicSalary-'+gid, fmt(sumField(rows, function(r){ return r.basicSalary; })));
+    upd('coltot-allowance-'+gid, fmt(sumField(rows, function(r){ return r.allowance; })));
+    upd('coltot-ph-'+gid, fmt(sumField(rows, phAmount)));
+    upd('coltot-ot-'+gid, fmt(sumField(rows, otAmount)));
+    upd('coltot-teamBonus-'+gid, fmt(sumField(rows, function(r){ return r.teamBonus; })));
+    var csTotal = sumField(rows, function(r){ return r.commissionSharing; });
+    upd('coltot-commissionSharing-'+gid, fmt(csTotal));
+    upd('coltot-tsc-'+gid, fmt(sumField(rows, tscAmount)));
+    upd('coltot-bonus-'+gid, fmt(sumField(rows, function(r){ return r.bonus; })));
+    var advTotal = sumField(rows, function(r){ return r.advance; });
+    upd('coltot-advance-'+gid, advTotal>0?'-'+fmt(advTotal):'-');
+    upd('coltot-epfSocso-'+gid, fmt(sumField(rows, function(r){ return r.epfSocso; })));
+    upd('coltot-pcb-'+gid, fmt(sumField(rows, function(r){ return r.pcb; })));
+    upd('coltot-csback-'+gid, '-'+fmt(csTotal));
+    var unpaidTotal = sumField(rows, unpaidDeduction);
+    upd('coltot-unpaid-'+gid, unpaidTotal>0?'-'+fmt(unpaidTotal):'-');
+    upd('coltot-otherAdjustment-'+gid, fmt(sumField(rows, function(r){ return r.otherAdjustment; })));
+    upd('coltot-mistakeAmount-'+gid, fmt(sumField(rows, function(r){ return r.mistakeAmount; })));
+    var mcTotal2 = sumField(rows, function(r){ return r.mcClaim; });
+    upd('coltot-mcClaim-'+gid, mcTotal2>0?'+'+fmt(mcTotal2):'-');
+    upd('grouptotal-'+gid, fmt(sumField(rows, function(r){ return computeNet(r,false); })));
+  }
+  var summaryTotalEl = document.getElementById('summarytotal-'+gid);
+  if(summaryTotalEl){
+    var sum = rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
+    summaryTotalEl.textContent = fmt(round2(sum));
+  }
+}
 
 function computeNet(row, isHourly){
   var mc = Number(row.mcClaim)||0;
@@ -146,9 +233,7 @@ function renderPayTable(){
       + ' <span style="color:var(--text-secondary);font-weight:600;">· TOTAL <span id="summarytotal-'+gid+'">'+fmt(round2(summaryTotal))+'</span></span></summary>';
     if(group.isHourly){
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr><th>姓名</th><th>时薪</th><th>时数</th><th>MC报销(自动)</th><th>预支/借支(自动)</th><th>备注</th><th>总薪水</th></tr>';
-      var groupTotal = 0;
       rows.forEach(function(row, i){
-        groupTotal += computeNet(row, true);
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
           + '<td>'+fmt(row.hourlyRate)+'</td>'
@@ -159,14 +244,12 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,true))+'</td>'
           + '</tr>';
       });
-      html += '<tr><td colspan="6" style="position:static;text-align:right;font-weight:700;padding:8px;">TOTAL</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
+      html += renderHourlyTotalRow(gid, rows);
       html += '</table></div>';
     } else {
       var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资'];
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
-      var groupTotal = 0;
       rows.forEach(function(row, i){
-        groupTotal += computeNet(row, false);
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
           + '<td>'+numInput(gid,i,'basicSalary',row.basicSalary,80)+'</td>'
@@ -197,7 +280,7 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
           + '</tr>';
       });
-      html += '<tr><td colspan="20" style="position:static;text-align:right;font-weight:700;padding:8px;">TOTAL 净工资</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
+      html += renderMonthlyTotalRow(gid, rows);
       html += '</table></div>';
     }
     html += '</details>';
@@ -229,11 +312,7 @@ function updateCell(inp){
     var csEl = document.getElementById('csback-'+gid+'-'+i); if(csEl) csEl.textContent = '-'+fmt(row.commissionSharing);
     var netEl2 = document.getElementById('net-'+gid+'-'+i); if(netEl2) netEl2.textContent = fmt(computeNet(row,false));
   }
-  var sum = group.rows.reduce(function(s,r){ return s + computeNet(r, group.isHourly); }, 0);
-  var groupTotalEl = document.getElementById('grouptotal-'+gid);
-  if(groupTotalEl) groupTotalEl.textContent = fmt(round2(sum));
-  var summaryTotalEl = document.getElementById('summarytotal-'+gid);
-  if(summaryTotalEl) summaryTotalEl.textContent = fmt(round2(sum));
+  refreshGroupTotals(gid, group);
   updateStats();
 }
 
