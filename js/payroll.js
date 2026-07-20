@@ -157,7 +157,7 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,true))+'</td>'
           + '</tr>';
       });
-      html += '<tr><td colspan="6" style="text-align:right;font-weight:700;padding:8px;">TOTAL</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
+      html += '<tr><td colspan="6" style="position:static;text-align:right;font-weight:700;padding:8px;">TOTAL</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
       html += '</table></div>';
     } else {
       var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资'];
@@ -195,7 +195,7 @@ function renderPayTable(){
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
           + '</tr>';
       });
-      html += '<tr><td colspan="20" style="text-align:right;font-weight:700;padding:8px;">TOTAL 净工资</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
+      html += '<tr><td colspan="20" style="position:static;text-align:right;font-weight:700;padding:8px;">TOTAL 净工资</td><td style="font-weight:700;white-space:nowrap;" id="grouptotal-'+gid+'">'+fmt(round2(groupTotal))+'</td></tr>';
       html += '</table></div>';
     }
     html += '</details>';
