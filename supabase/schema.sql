@@ -87,6 +87,7 @@ create table public.employees (
   kwsp_number text,
   pcb_number text,
   status text not null default '在职',  -- '在职' / '离职',离职不删除
+  resign_date date,                     -- 离职日期,留空的话薪水计算没办法判断哪几个月该算他
   no_benefits boolean not null default false,  -- 人头员工:不享有假期/MC/借支等福利,只在薪水计算出现
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

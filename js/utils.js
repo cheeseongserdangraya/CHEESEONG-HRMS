@@ -35,7 +35,7 @@ var EMP_FIELD_MAP = {
   basicSalary:'basic_salary', allowance:'allowance', hourlyRate:'hourly_rate', annualLeave:'annual_leave_override',
   emergencyName:'emergency_name', emergencyNumber:'emergency_number', emergencyRel:'emergency_rel',
   bankName:'bank_name', accountHolder:'account_holder', bankAccountNumber:'bank_account_number',
-  kwspNumber:'kwsp_number', pcbNumber:'pcb_number', status:'status', noBenefits:'no_benefits'
+  kwspNumber:'kwsp_number', pcbNumber:'pcb_number', status:'status', resignDate:'resign_date', noBenefits:'no_benefits'
 };
 
 var PAYROLL_FIELD_MAP = {

@@ -126,6 +126,7 @@ function renderEmpList(){
         + row('IC/护照扫描件', e.icFile ? '<a href="'+esc(e.icFile)+'" target="_blank">查看链接</a>' : '-', true)
         + row('Email', e.email) + row('联络电话', e.contact) + row('地址', e.address)
         + row('性别', e.gender) + row('国籍', e.nationality) + row('入职日期', e.joinDate)
+        + (e.status==='离职' ? row('离职日期', e.resignDate||'(未填,薪水计算会抓不到他离职前的月份)') : '')
         + row('员工类型', e.employeeType) + row('是否有Payslip', e.nationality==='本地'&&e.employeeType!=='兼职' ? e.hasPayslip : '-')
         + row('支付方式', e.paymentMethod||'银行转账')
         + row('底薪', e.employeeType==='兼职'?'-':fmt(e.basicSalary))
@@ -200,9 +201,19 @@ async function toggleStatus(id){
   var e = employees.find(function(x){ return x.id===id; });
   if(!e) return;
   var newStatus = e.status==='离职' ? '在职' : '离职';
-  var { error } = await sb.from('employees').update({ status: newStatus }).eq('id', id);
+  var updateData = { status: newStatus };
+  if(newStatus==='离职'){
+    var d = prompt('这个员工的离职日期是?(格式 YYYY-MM-DD)\n填了之后,薪水计算才知道他离职前的那几个月还要照常算他,离职月之后就不会再出现。', e.resignDate || todayStr());
+    if(d===null) return; // 按取消就不切换
+    updateData.resignDate = d.trim() || null;
+  } else {
+    updateData.resignDate = null; // 重新在职,清掉之前的离职日期
+  }
+  var row = objToRow(EMP_FIELD_MAP, updateData);
+  var { error } = await sb.from('employees').update(row).eq('id', id);
   if(error){ alert('更新失败:' + error.message); return; }
   e.status = newStatus;
+  e.resignDate = updateData.resignDate;
   renderEmpList();
 }
 

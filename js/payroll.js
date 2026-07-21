@@ -36,7 +36,12 @@ async function loadPayroll(){
     payrollSavedRowIds[o.employeeId] = o.id;
   });
 
-  var active = employees.filter(function(e){ return e.company===company && (e.status||'在职')==='在职'; });
+  var active = employees.filter(function(e){
+    if(e.company!==company) return false;
+    if((e.status||'在职')==='在职') return true;
+    // 离职员工:只要离职日期是这个月或之后,代表这个月他还在职、要照常出现;离职月之后才排除
+    return !!(e.resignDate && e.resignDate.slice(0,7) >= month);
+  });
   active.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
   payrollGroups = {};
   active.forEach(function(e){
