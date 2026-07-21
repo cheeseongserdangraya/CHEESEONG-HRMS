@@ -52,7 +52,8 @@ async function loadPayroll(){
     var unpaidDays = unpaidLeaveDaysForMonth(e.id, month);
     if(e.employeeType==='兼职'){
       payrollGroups[g].rows.push({
-        employeeId: e.id, name: e.nameEn, hourlyRate: e.hourlyRate||0,
+        employeeId: e.id, name: e.nameEn,
+        hourlyRate: (s.hourlyRate!==undefined && s.hourlyRate!==null) ? s.hourlyRate : (e.hourlyRate||0),
         hours: s.hours||0, mcClaim: mcClaim, advance: loanRepay, notes: s.notes||''
       });
     } else {
@@ -236,7 +237,7 @@ function renderPayTable(){
       rows.forEach(function(row, i){
         html += '<tr>'
           + '<td style="font-weight:500;white-space:nowrap;">'+esc(row.name)+'</td>'
-          + '<td>'+fmt(row.hourlyRate)+'</td>'
+          + '<td>'+numInput(gid,i,'hourlyRate',row.hourlyRate,60)+'</td>'
           + '<td>'+numInput(gid,i,'hours',row.hours,60)+'</td>'
           + '<td style="color:var(--success);white-space:nowrap;">'+(row.mcClaim>0?'+'+fmt(row.mcClaim):'-')+'</td>'
           + '<td style="color:var(--danger);white-space:nowrap;">'+(row.advance>0?'-'+fmt(row.advance):'-')+'</td>'
@@ -387,7 +388,7 @@ async function savePayroll(){
     group.rows.forEach(function(r){
       var o = { employeeId: r.employeeId, company: company, month: month, notes: r.notes||'' };
       if(group.isHourly){
-        o.hours = r.hours; o.allowance = 0; o.phDays = 0; o.otHours = 0; o.teamBonus = 0; o.commissionSharing = 0; o.bonus = 0; o.epfSocso = 0; o.pcb = 0;
+        o.hours = r.hours; o.hourlyRate = r.hourlyRate; o.allowance = 0; o.phDays = 0; o.otHours = 0; o.teamBonus = 0; o.commissionSharing = 0; o.bonus = 0; o.epfSocso = 0; o.pcb = 0;
       } else {
         PAYROLL_FIELDS_MONTHLY.forEach(function(f){ o[f] = r[f]; });
         o.hours = 0;

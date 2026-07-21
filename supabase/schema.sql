@@ -117,6 +117,7 @@ create table public.payroll_records (
   epf_socso numeric default 0,
   pcb numeric default 0,
   hours numeric default 0,          -- 兼职员工时数
+  hourly_rate numeric,              -- 留空(null)=沿用员工资料的时薪;有填值=这个月锁住的时薪(之后员工资料涨薪不会往回改旧月份)
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
