@@ -195,6 +195,71 @@ function renderOtList(){
   });
 }
 
+// ---- 打印/导出PDF清单(按员工分段) ----
+function printAttendanceList(kind){
+  var isLate = kind === 'late';
+  var records = isLate ? lateRecords : otRecords;
+  var fc = document.getElementById(isLate ? 'late-filter-company' : 'ot-filter-company').value;
+  var fm = document.getElementById(isLate ? 'late-filter-month' : 'ot-filter-month').value;
+  var list = records.filter(function(r){
+    var okC = fc==='全部' || r.company===fc;
+    var okM = !fm || (r.date||'').slice(0,7)===fm;
+    return okC && okM;
+  });
+  if(list.length===0){ alert('没有符合条件的记录可以列印'); return; }
+
+  var byEmployee = {};
+  var order = [];
+  list.forEach(function(r){
+    var emp = employees.find(function(e){ return e.id===r.employeeId; });
+    var name = emp ? (emp.nameEn||emp.nameCn) : '(已删除员工)';
+    if(!byEmployee[r.employeeId]){ byEmployee[r.employeeId] = { name:name, company:r.company, records:[] }; order.push(r.employeeId); }
+    byEmployee[r.employeeId].records.push(r);
+  });
+  order.sort(function(a,b){ return byEmployee[a].name.localeCompare(byEmployee[b].name); });
+
+  var title = (isLate ? '迟到记录' : 'OT记录') + (fc!=='全部' ? ' - ' + fc : '') + (fm ? ' - ' + fm : '');
+  var todayStr = new Date().toLocaleDateString('zh-CN');
+
+  var bodyHtml = '';
+  order.forEach(function(empId){
+    var g = byEmployee[empId];
+    g.records.sort(function(a,b){ return (a.date||'').localeCompare(b.date||''); });
+    bodyHtml += '<div class="emp-block">';
+    bodyHtml += '<div class="emp-head"><span>'+esc(g.name)+' <span class="emp-company">'+esc(g.company)+'</span></span><span class="emp-total">共 '+g.records.length+' '+(isLate?'次':'天')+'</span></div>';
+    bodyHtml += '<table><thead><tr><th>日期</th><th>打卡时间</th><th>备注</th></tr></thead><tbody>';
+    g.records.forEach(function(r){
+      bodyHtml += '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.time||'-')+'</td><td>'+esc(r.notes||'-')+'</td></tr>';
+    });
+    bodyHtml += '</tbody></table></div>';
+  });
+
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>'
+    + 'body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:24px;color:#111;}'
+    + 'h1{font-size:18px;margin:0 0 4px;}'
+    + '.meta{font-size:12px;color:#666;margin-bottom:20px;}'
+    + '.emp-block{break-inside:avoid;page-break-inside:avoid;margin-bottom:18px;}'
+    + '.emp-head{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;background:#f0f0f0;padding:6px 10px;border-radius:4px;margin-bottom:4px;}'
+    + '.emp-company{font-weight:400;color:#666;font-size:12px;margin-left:6px;}'
+    + '.emp-total{color:#b8860b;}'
+    + 'table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px;}'
+    + 'th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;}'
+    + 'th{background:#fafafa;}'
+    + '@media print{ body{padding:0;} }'
+    + '</style></head><body>'
+    + '<h1>'+esc(title)+'</h1>'
+    + '<div class="meta">生成日期:'+todayStr+'</div>'
+    + bodyHtml
+    + '</body></html>';
+
+  var w = window.open('', '_blank');
+  if(!w){ alert('浏览器阻止了弹出窗口,请允许弹窗后再试一次'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.onload = function(){ w.focus(); w.print(); };
+}
+
 // ---- 迟到记录 ----
 function populateLateEmployeeSelect(){
   var company = document.getElementById('late-company').value;

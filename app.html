@@ -281,6 +281,7 @@
         <option value="TONGPOPO">TONGPOPO</option>
       </select>
       <input id="late-filter-month" type="month" style="flex:1;" onchange="renderLateList()" />
+      <button type="button" class="secondary" onclick="printAttendanceList('late')">🖨️ 打印/存PDF</button>
     </div>
     <div id="late-list"></div>
 
@@ -310,6 +311,7 @@
         <option value="TONGPOPO">TONGPOPO</option>
       </select>
       <input id="ot-filter-month" type="month" style="flex:1;" onchange="renderOtList()" />
+      <button type="button" class="secondary" onclick="printAttendanceList('ot')">🖨️ 打印/存PDF</button>
     </div>
     <div id="ot-list"></div>
   </div>
