@@ -77,7 +77,7 @@ function carryInDays(employeeId, year){
   return rec ? rec.days : 0;
 }
 
-function accruedAnnualLeave(emp, asOfDate){
+function accruedAnnualLeave(emp, asOfDate, includeCarryIn){
   // 按月累计,不是年初一次性给满 — 例如一年8天,到7月大概只累计了8*7/12天
   if(!emp) return 0;
   var d = asOfDate ? new Date(asOfDate) : new Date();
@@ -91,7 +91,7 @@ function accruedAnnualLeave(emp, asOfDate){
     var joinMonth = Number((emp.joinDate||'').slice(5,7));
     monthsElapsed = Math.max(0, monthsElapsed - joinMonth + 1);
   }
-  var carryIn = carryInDays(emp.id, refYear.toString());
+  var carryIn = includeCarryIn===false ? 0 : carryInDays(emp.id, refYear.toString());
   return Math.round(full * monthsElapsed / 12) + carryIn;
 }
 
@@ -370,6 +370,7 @@ function renderLeaveOverview(){
     var alUsed = annualLeaveUsed(e.id, year);
     var alRemain = round2(alAccrued - alUsed);
     var alFullYear = annualLeaveEntitlement(e, today); // 全年应有额度(不按月折算),纯参考用,不影响累计/已用/剩余的算法
+    var alAccruedThisYearOnly = accruedAnnualLeave(e, today, false); // 不含年结转,纯粹今年自己累积的天数,给「今年进度」栏用
 
     var mcEnt = mcLeaveEntitlement(e, today);
     var mcUsedDays = leaveDaysForType(e.id, '病假', year);
@@ -397,7 +398,7 @@ function renderLeaveOverview(){
     html += '<tr>'
       + '<td style="font-weight:500;white-space:nowrap;">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+' <span style="color:var(--text-muted);font-weight:400;font-size:11px;">('+esc(e.nationality||'其他')+')</span></td>'
       + '<td style="white-space:nowrap;">'+esc(e.company)+(isMyanmarEmployee(e)?' <span style="color:var(--warning);font-size:11px;">(缅甸-全算无薪)</span>':'')+'</td>'
-      + '<td style="white-space:nowrap;color:var(--text-secondary);">'+alAccrued+' / '+alFullYear+'</td>'
+      + '<td style="white-space:nowrap;color:var(--text-secondary);">'+alAccruedThisYearOnly+' / '+alFullYear+'</td>'
       + '<td style="white-space:nowrap;">'+alAccrued+' / '+alUsed+' / <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b></td>'
       + '<td style="white-space:nowrap;">'+phAccruedDays+' / '+phUsedDays+' / <b style="color:'+(phRemainDays<0?'var(--danger)':'var(--success)')+';">'+phRemainDays+'</b></td>'
       + '<td style="white-space:nowrap;">'+mcEnt+' / '+mcUsedDays+' / <b style="color:'+(mcRemainDays<0?'var(--danger)':'var(--success)')+';">'+mcRemainDays+'</b></td>'
