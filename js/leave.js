@@ -367,10 +367,11 @@ function renderLeaveOverview(){
     + '<th>EL 已用</th><th>ML 已用</th><th>PL 已用</th><th>无薪假</th><th>医疗费报销 RM</th></tr>';
   list.forEach(function(e){
     var alUsed = annualLeaveUsed(e.id, year);
-    var alFullYear = annualLeaveEntitlement(e, today); // 全年应有额度(不按月折算)
+    var alFullYear = annualLeaveEntitlement(e, today); // 全年应有额度(按年资分级,不管几时入职),给「今年进度」栏的分母用
     var alAccruedThisYearOnly = accruedAnnualLeave(e, today, false); // 不含年结转,纯粹截至今天累积的天数,给「今年进度」栏用
     var alCarryIn = carryInDays(e.id, year);
-    var alFullBalance = alFullYear + alCarryIn; // 去年结转 + 今年整年额度(不按月折算),给「累计/已用/剩余」栏用
+    // 「累计/已用/剩余」= 去年结转 + 今年整年会拿到的额度。当年入职的员工只算入职月到12月,不能给整年满额(除非做满一整个年历年)
+    var alFullBalance = accruedAnnualLeave(e, year+'-12-31', false) + alCarryIn;
     var alRemain = round2(alFullBalance - alUsed);
 
     var mcEnt = mcLeaveEntitlement(e, today);
