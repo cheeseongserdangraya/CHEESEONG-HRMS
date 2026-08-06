@@ -366,11 +366,12 @@ function renderLeaveOverview(){
     + '<th>AL 今年进度(已累积/全年应有)</th><th>AL 累计/已用/剩余</th><th>PH假期 累积/已用/剩余</th><th>MC 额度/已用/剩余</th><th>同情假 额度/已用/剩余</th><th>丧假 已用</th>'
     + '<th>EL 已用</th><th>ML 已用</th><th>PL 已用</th><th>无薪假</th><th>医疗费报销 RM</th></tr>';
   list.forEach(function(e){
-    var alAccrued = accruedAnnualLeave(e, today);
     var alUsed = annualLeaveUsed(e.id, year);
-    var alRemain = round2(alAccrued - alUsed);
-    var alFullYear = annualLeaveEntitlement(e, today); // 全年应有额度(不按月折算),纯参考用,不影响累计/已用/剩余的算法
-    var alAccruedThisYearOnly = accruedAnnualLeave(e, today, false); // 不含年结转,纯粹今年自己累积的天数,给「今年进度」栏用
+    var alFullYear = annualLeaveEntitlement(e, today); // 全年应有额度(不按月折算)
+    var alAccruedThisYearOnly = accruedAnnualLeave(e, today, false); // 不含年结转,纯粹截至今天累积的天数,给「今年进度」栏用
+    var alCarryIn = carryInDays(e.id, year);
+    var alFullBalance = alFullYear + alCarryIn; // 去年结转 + 今年整年额度(不按月折算),给「累计/已用/剩余」栏用
+    var alRemain = round2(alFullBalance - alUsed);
 
     var mcEnt = mcLeaveEntitlement(e, today);
     var mcUsedDays = leaveDaysForType(e.id, '病假', year);
@@ -399,7 +400,7 @@ function renderLeaveOverview(){
       + '<td style="font-weight:500;white-space:nowrap;">'+esc(e.nameEn)+(e.nameCn?' '+esc(e.nameCn):'')+' <span style="color:var(--text-muted);font-weight:400;font-size:11px;">('+esc(e.nationality||'其他')+')</span></td>'
       + '<td style="white-space:nowrap;">'+esc(e.company)+(isMyanmarEmployee(e)?' <span style="color:var(--warning);font-size:11px;">(缅甸-全算无薪)</span>':'')+'</td>'
       + '<td style="white-space:nowrap;color:var(--text-secondary);">'+alAccruedThisYearOnly+' / '+alFullYear+'</td>'
-      + '<td style="white-space:nowrap;">'+alAccrued+' / '+alUsed+' / <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b></td>'
+      + '<td style="white-space:nowrap;">'+alFullBalance+' / '+alUsed+' / <b style="color:'+(alRemain<0?'var(--danger)':'var(--success)')+';">'+alRemain+'</b></td>'
       + '<td style="white-space:nowrap;">'+phAccruedDays+' / '+phUsedDays+' / <b style="color:'+(phRemainDays<0?'var(--danger)':'var(--success)')+';">'+phRemainDays+'</b></td>'
       + '<td style="white-space:nowrap;">'+mcEnt+' / '+mcUsedDays+' / <b style="color:'+(mcRemainDays<0?'var(--danger)':'var(--success)')+';">'+mcRemainDays+'</b></td>'
       + '<td style="white-space:nowrap;">'+clEnt+' / '+clUsedDays+' / <b style="color:'+(clRemainDays<0?'var(--danger)':'var(--success)')+';">'+clRemainDays+'</b></td>'
