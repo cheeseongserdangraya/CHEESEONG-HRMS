@@ -89,6 +89,7 @@ async function computeRealBranchCost(month){
   var { data, error } = await sb.from('payroll_records').select('*').in('company', ['FIRSTONE','CS FIRSTONE']).eq('month', month);
   if(error){ return null; }
   var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
+  var breakdown = { 'FIRSTONE': [], 'CS FIRSTONE': [] };
   data.forEach(function(row){
     var o = rowToObj(PAYROLL_FIELD_MAP, row);
     var emp = employees.find(function(e){ return e.id===o.employeeId; });
@@ -108,16 +109,35 @@ async function computeRealBranchCost(month){
       mcClaim: mcAmountForMonth(emp.id, month),
       unpaidDays: unpaidLeaveDaysForMonth(emp.id, month)
     };
-    var cost = totalCost(built, isHourly);
+    var cost = round2(totalCost(built, isHourly));
+    var name = emp.nameEn||emp.nameCn||'(未命名)';
     var alloc = emp.costBranch || emp.company;
     if(alloc==='split'){
-      totals['FIRSTONE'] += cost/2;
-      totals['CS FIRSTONE'] += cost/2;
+      var half = round2(cost/2);
+      totals['FIRSTONE'] += half;
+      totals['CS FIRSTONE'] += half;
+      breakdown['FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')', amount: half });
+      breakdown['CS FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')', amount: half });
     } else if(totals[alloc]!==undefined){
       totals[alloc] += cost;
+      var note = alloc===emp.company ? '登记'+emp.company : '登记'+emp.company+',成本改算在'+alloc;
+      breakdown[alloc].push({ name: name, note: note, amount: cost });
     }
   });
-  return { firstone: round2(totals['FIRSTONE']), cs: round2(totals['CS FIRSTONE']) };
+  ['FIRSTONE','CS FIRSTONE'].forEach(function(b){ breakdown[b].sort(function(a,b2){ return b2.amount-a.amount; }); });
+  return { firstone: round2(totals['FIRSTONE']), cs: round2(totals['CS FIRSTONE']), breakdown: breakdown };
+}
+
+function realCostBreakdownHtml(label, list, total){
+  var rows = list.map(function(r){
+    return '<tr><td style="padding:3px 8px 3px 0;">'+esc(r.name)+'</td>'
+      + '<td style="padding:3px 8px;color:var(--text-secondary);font-size:11px;">'+esc(r.note)+'</td>'
+      + '<td style="padding:3px 0;text-align:right;font-weight:500;white-space:nowrap;">'+fmt(r.amount)+'</td></tr>';
+  }).join('');
+  return '<details style="flex:1;min-width:260px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">'+esc(label)+' 明细('+list.length+'人)▾</summary>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;">'+rows+'</table>'
+    + '<p style="text-align:right;font-weight:700;font-size:13px;margin:6px 0 0;border-top:1px solid var(--border);padding-top:4px;">合计 '+fmt(total)+'</p>'
+    + '</details>';
 }
 
 async function updateRealCostBox(){
@@ -129,6 +149,9 @@ async function updateRealCostBox(){
   if(!result) return;
   document.getElementById('real-cost-firstone').textContent = fmt(result.firstone);
   document.getElementById('real-cost-cs').textContent = fmt(result.cs);
+  document.getElementById('real-cost-breakdown').innerHTML =
+    realCostBreakdownHtml('FIRSTONE', result.breakdown['FIRSTONE'], result.firstone)
+    + realCostBreakdownHtml('CS FIRSTONE', result.breakdown['CS FIRSTONE'], result.cs);
   box.style.display = '';
 }
 
