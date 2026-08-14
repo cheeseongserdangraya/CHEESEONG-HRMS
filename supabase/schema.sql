@@ -117,6 +117,7 @@ create table public.payroll_records (
   mistake_amount numeric default 0,   -- 员工犯错金额,纯粹记录给老板看,不影响净工资、也不计入公司总支出
   epf_socso numeric default 0,
   pcb numeric default 0,
+  employer_epf_socso numeric default 0, -- 老板要出的EPF/SOCSO/EIS,纯粹记录公司真正成本,不影响员工净工资
   hours numeric default 0,          -- 兼职员工时数
   hourly_rate numeric,              -- 留空(null)=沿用员工资料的时薪;有填值=这个月锁住的时薪(之后员工资料涨薪不会往回改旧月份)
   notes text,

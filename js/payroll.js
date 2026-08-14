@@ -72,7 +72,7 @@ async function loadPayroll(){
         otAmountOverride: (s.otAmountOverride!==undefined && s.otAmountOverride!==null) ? s.otAmountOverride : null,
         teamBonus: s.teamBonus||0, commissionSharing: s.commissionSharing||0,
         bonus: s.bonus||0, otherAdjustment: s.otherAdjustment||0, mistakeAmount: s.mistakeAmount||0, advance: loanRepay,
-        epfSocso: s.epfSocso||0, pcb: s.pcb||0, mcClaim: mcClaim,
+        epfSocso: s.epfSocso||0, pcb: s.pcb||0, employerEpfSocso: s.employerEpfSocso||0, mcClaim: mcClaim,
         otDaysLogged: otDaysLogged, lateCount: lateCount, unpaidDays: unpaidDays,
         notes: s.notes||''
       });
@@ -148,6 +148,7 @@ function renderMonthlyTotalRow(gid, rows){
     + '<td id="coltot-mcClaim-'+gid+'" style="color:var(--success);">'+(mcTotal>0?'+'+fmt(mcTotal):'-')+'</td>'
     + '<td>-</td>'
     + '<td id="grouptotal-'+gid+'">'+fmt(sumField(rows, function(r){ return computeNet(r, false); }))+'</td>'
+    + '<td id="coltot-employerEpfSocso-'+gid+'">'+fmt(sumField(rows, function(r){ return r.employerEpfSocso; }))+'</td>'
     + '</tr>';
 }
 
@@ -183,6 +184,7 @@ function refreshGroupTotals(gid, group){
     var mcTotal2 = sumField(rows, function(r){ return r.mcClaim; });
     upd('coltot-mcClaim-'+gid, mcTotal2>0?'+'+fmt(mcTotal2):'-');
     upd('grouptotal-'+gid, fmt(sumField(rows, function(r){ return computeNet(r,false); })));
+    upd('coltot-employerEpfSocso-'+gid, fmt(sumField(rows, function(r){ return r.employerEpfSocso; })));
   }
   var summaryTotalEl = document.getElementById('summarytotal-'+gid);
   if(summaryTotalEl){
@@ -202,7 +204,8 @@ function totalCost(row, isHourly){
   var mc = Number(row.mcClaim)||0;
   if(isHourly) return round2(hourlyTotal(row) + mc);
   return round2(row.basicSalary + Number(row.allowance) + phAmount(row) + otAmount(row)
-    + tscAmount(row) + Number(row.bonus) + Number(row.otherAdjustment||0) + mc - unpaidDeduction(row));
+    + tscAmount(row) + Number(row.bonus) + Number(row.otherAdjustment||0) + mc - unpaidDeduction(row)
+    + Number(row.employerEpfSocso||0));
 }
 
 function numInput(gid, i, f, v, w){
@@ -255,7 +258,7 @@ function renderPayTable(){
       html += renderHourlyTotalRow(gid, rows);
       html += '</table></div>';
     } else {
-      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资'];
+      var headers = ['姓名','底薪','津贴','PH天数','PH金额','OT小时','OT金额','团队奖金','佣金分成(月中已发)','服务费总分成TSC','花红','预支/借支(自动)','EPF/SOCSO/EIS','PCB','已扣佣金(自动)','无薪假扣款(自动)','其他调整(+/-)','犯错金额(仅记录,不影响薪水)','MC报销(自动)','备注','净工资','老板EPF/SOCSO/EIS(仅记录,算入公司支出)'];
       html += '<div class="pay-table-wrap"><table class="pay-table"><tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
       rows.forEach(function(row, i){
         html += '<tr>'
@@ -286,6 +289,7 @@ function renderPayTable(){
           + '<td style="color:var(--success);white-space:nowrap;">'+(row.mcClaim>0?'+'+fmt(row.mcClaim):'-')+'</td>'
           + '<td><input type="text" class="notes-input" data-g="'+gid+'" data-i="'+i+'" data-f="notes" value="'+esc(row.notes)+'" onchange="updateCell(this)" '+notesDis+' /></td>'
           + '<td style="font-weight:600;white-space:nowrap;" id="net-'+gid+'-'+i+'">'+fmt(computeNet(row,false))+'</td>'
+          + '<td>'+numInput(gid,i,'employerEpfSocso',row.employerEpfSocso,80)+'</td>'
           + '</tr>';
       });
       html += renderMonthlyTotalRow(gid, rows);
@@ -395,7 +399,7 @@ async function savePayroll(){
     group.rows.forEach(function(r){
       var o = { employeeId: r.employeeId, company: company, month: month, notes: r.notes||'' };
       if(group.isHourly){
-        o.hours = r.hours; o.hourlyRate = r.hourlyRate; o.allowance = 0; o.phDays = 0; o.otHours = 0; o.teamBonus = 0; o.commissionSharing = 0; o.bonus = 0; o.epfSocso = 0; o.pcb = 0;
+        o.hours = r.hours; o.hourlyRate = r.hourlyRate; o.allowance = 0; o.phDays = 0; o.otHours = 0; o.teamBonus = 0; o.commissionSharing = 0; o.bonus = 0; o.epfSocso = 0; o.pcb = 0; o.employerEpfSocso = 0;
       } else {
         PAYROLL_FIELDS_MONTHLY.forEach(function(f){ o[f] = r[f]; });
         o.hours = 0;
@@ -409,4 +413,4 @@ async function savePayroll(){
   document.getElementById('pay-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
   setTimeout(function(){ document.getElementById('pay-msg').textContent=''; }, 2500);
 }
-var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','otherAdjustment','mistakeAmount','epfSocso','pcb'];
+var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','otherAdjustment','mistakeAmount','epfSocso','pcb','employerEpfSocso'];
