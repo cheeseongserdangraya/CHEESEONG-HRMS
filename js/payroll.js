@@ -16,6 +16,15 @@ function showPayrollTab(){
   }
 }
 
+function isEmployeeActiveForCompanyMonth(e, company, month){
+  if(e.company!==company) return false;
+  // 入职日期比这个月还晚:这个月他还没入职,不该出现
+  if(e.joinDate && e.joinDate.slice(0,7) > month) return false;
+  if((e.status||'在职')==='在职') return true;
+  // 离职员工:只要离职日期是这个月或之后,代表这个月他还在职、要照常出现;离职月之后才排除
+  return !!(e.resignDate && e.resignDate.slice(0,7) >= month);
+}
+
 function mcAmountForMonth(employeeId, month){
   return round2(mcClaims.filter(function(c){ return c.employeeId===employeeId && (c.date||'').slice(0,7)===month; })
     .reduce(function(s,c){ return s + c.claimAmount; }, 0));
@@ -36,14 +45,7 @@ async function loadPayroll(){
     payrollSavedRowIds[o.employeeId] = o.id;
   });
 
-  var active = employees.filter(function(e){
-    if(e.company!==company) return false;
-    // 入职日期比这个月还晚:这个月他还没入职,不该出现
-    if(e.joinDate && e.joinDate.slice(0,7) > month) return false;
-    if((e.status||'在职')==='在职') return true;
-    // 离职员工:只要离职日期是这个月或之后,代表这个月他还在职、要照常出现;离职月之后才排除
-    return !!(e.resignDate && e.resignDate.slice(0,7) >= month);
-  });
+  var active = employees.filter(function(e){ return isEmployeeActiveForCompanyMonth(e, company, month); });
   active.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
   payrollGroups = {};
   active.forEach(function(e){
@@ -94,6 +96,8 @@ async function computeRealBranchCost(month){
     var o = rowToObj(PAYROLL_FIELD_MAP, row);
     var emp = employees.find(function(e){ return e.id===o.employeeId; });
     if(!emp || emp.noBenefits) return; // 人头不算实际成本
+    // 旧月份存的记录,如果员工现在已经离职/换公司/那个月还没入职,不该再算进来(库里可能留着历史资料)
+    if(!isEmployeeActiveForCompanyMonth(emp, row.company, month)) return;
     var isHourly = emp.employeeType==='兼职';
     var built = isHourly ? {
       hourlyRate: (o.hourlyRate!==undefined && o.hourlyRate!==null) ? o.hourlyRate : (emp.hourlyRate||0),
