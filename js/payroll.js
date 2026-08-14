@@ -87,8 +87,9 @@ async function loadPayroll(){
 
 // FIRSTONE / CS FIRSTONE 实际成本:不是按登记在哪间公司算,是按员工资料里设的「实际成本归属」算
 // (跟登记公司一样 / 强制算某一间 / 两间平分),人头员工(无福利)不计入。以已保存的 payroll_records 为准。
+// 要查全部公司(含TONGPOPO),因为TONGPOPO员工也可能被设定成本要算进FIRSTONE/CS FIRSTONE。
 async function computeRealBranchCost(month){
-  var { data, error } = await sb.from('payroll_records').select('*').in('company', ['FIRSTONE','CS FIRSTONE']).eq('month', month);
+  var { data, error } = await sb.from('payroll_records').select('*').eq('month', month);
   if(error){ return null; }
   var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
   var breakdown = { 'FIRSTONE': [], 'CS FIRSTONE': [] };
