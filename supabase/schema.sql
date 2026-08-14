@@ -89,6 +89,7 @@ create table public.employees (
   status text not null default '在职',  -- '在职' / '离职',离职不删除
   resign_date date,                     -- 离职日期,留空的话薪水计算没办法判断哪几个月该算他
   no_benefits boolean not null default false,  -- 人头员工:不享有假期/MC/借支等福利,只在薪水计算出现
+  cost_branch text,                     -- 实际成本归属:留空=跟公司一样,或 'FIRSTONE'/'CS FIRSTONE'/'split'(两间平分)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

@@ -67,6 +67,12 @@
           <option value="CS FIRSTONE">CS FIRSTONE</option>
           <option value="TONGPOPO">TONGPOPO</option>
         </select>
+        <select id="f-costbranch" title="实际做工/成本真正算在哪间店(跟登记公司可以不一样)">
+          <option value="">实际成本:跟登记公司一样</option>
+          <option value="FIRSTONE">实际成本:算在 FIRSTONE</option>
+          <option value="CS FIRSTONE">实际成本:算在 CS FIRSTONE</option>
+          <option value="split">实际成本:FIRSTONE/CS FIRSTONE 平分</option>
+        </select>
         <input id="f-dept" placeholder="部门 Department" />
         <input id="f-position" placeholder="职位 Position" />
         <input id="f-join" type="date" />
@@ -162,6 +168,14 @@
       <div class="stat-box" style="border-color:var(--accent);">
         <p class="stat-label">本月分店总支出(含EPF/SOCSO/PCB/预支/佣金/老板EPF)</p>
         <p class="stat-value" id="stat-cost" style="color:var(--accent);">RM0</p>
+      </div>
+    </div>
+    <div class="card" id="real-cost-box" style="display:none;border-color:var(--accent);margin-top:12px;">
+      <p style="font-weight:600;font-size:14px;margin:0 0 4px;">🏬 FIRSTONE / CS FIRSTONE 实际成本</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin:0 0 10px;">按谁真正做工/在员工资料设的「实际成本归属」算,不是按登记在哪间公司;人头员工(无福利)不计入;以上次保存的资料为准,改了要先按「保存本月薪水」才会更新。</p>
+      <div style="display:flex;gap:32px;flex-wrap:wrap;">
+        <p style="margin:0;font-size:15px;">FIRSTONE:<b id="real-cost-firstone" style="color:var(--accent);margin-left:6px;">RM0</b></p>
+        <p style="margin:0;font-size:15px;">CS FIRSTONE:<b id="real-cost-cs" style="color:var(--accent);margin-left:6px;">RM0</b></p>
       </div>
     </div>
   </div>

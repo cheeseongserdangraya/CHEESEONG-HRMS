@@ -28,7 +28,7 @@ function clearForm(){
 var EMP_DOM_ID = {
   nric:'f-nric', icFile:'f-icfile', nameEn:'f-nameen', nameCn:'f-namecn',
   gender:'f-gender', nationality:'f-nat', email:'f-email', contact:'f-contact',
-  address:'f-address', company:'f-company', department:'f-dept', position:'f-position',
+  address:'f-address', company:'f-company', costBranch:'f-costbranch', department:'f-dept', position:'f-position',
   joinDate:'f-join', employeeType:'f-emptype', hasPayslip:'f-payslip', paymentMethod:'f-paymethod',
   basicSalary:'f-salary', allowance:'f-allowance', hourlyRate:'f-hourlyrate', annualLeave:'f-annualleave',
   emergencyName:'f-emname', emergencyNumber:'f-emnum', emergencyRel:'f-emrel',
@@ -113,7 +113,7 @@ function renderEmpList(){
     html += '<div class="emp-row-head" onclick="toggleRow(\''+e.id+'\')">'
       + '<div class="avatar">'+(numLabel!==undefined ? numLabel : esc(e.nameEn||e.nameCn||'?').slice(0,1).toUpperCase())+'</div>'
       + '<div style="flex:1;min-width:0;">'
-      + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span>'+(e.noBenefits?' <span class="badge role-boss" style="font-size:10px;">人头/无福利</span>':'')+'</p>'
+      + '<p class="emp-name">'+esc(e.nameEn)+' <span class="cn">'+esc(e.nameCn)+'</span>'+(e.noBenefits?' <span class="badge role-boss" style="font-size:10px;">人头/无福利</span>':'')+(e.costBranch?' <span class="badge role-boss" style="font-size:10px;">成本:'+(e.costBranch==='split'?'平分':e.costBranch)+'</span>':'')+'</p>'
       + '<p class="emp-meta"><b style="color:var(--text-secondary);">'+esc(e.company)+'</b> · '+esc(e.department)+' · '+esc(e.position)+' · '+(e.paymentMethod==='现金'?'<span style="color:var(--accent);font-weight:600;">现金</span>':'银行转账')+' · '+(e.employeeType==='兼职'? '时薪 '+fmt(e.hourlyRate) : '底薪 '+fmt(e.basicSalary)+' · 津贴 '+fmt(e.allowance))+'</p>'
       + '</div>'
       + '<span class="badge '+(e.status==='离职'?'inactive':'active')+'">'+(e.status||'在职')+'</span>'
@@ -122,6 +122,7 @@ function renderEmpList(){
     if(isOpen){
       html += '<div class="emp-detail"><table>'
         + row('公司', e.company)
+        + (e.costBranch ? row('实际成本归属', e.costBranch==='split' ? 'FIRSTONE/CS FIRSTONE 平分' : '算在 '+e.costBranch) : '')
         + row('NRIC/Passport', e.nric)
         + row('IC/护照扫描件', e.icFile ? '<a href="'+esc(e.icFile)+'" target="_blank">查看链接</a>' : '-', true)
         + row('Email', e.email) + row('联络电话', e.contact) + row('地址', e.address)

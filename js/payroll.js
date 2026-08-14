@@ -80,6 +80,56 @@ async function loadPayroll(){
   });
   payrollLoadedKey = company + '|' + month;
   renderPayTable();
+  updateRealCostBox();
+}
+
+// FIRSTONE / CS FIRSTONE 实际成本:不是按登记在哪间公司算,是按员工资料里设的「实际成本归属」算
+// (跟登记公司一样 / 强制算某一间 / 两间平分),人头员工(无福利)不计入。以已保存的 payroll_records 为准。
+async function computeRealBranchCost(month){
+  var { data, error } = await sb.from('payroll_records').select('*').in('company', ['FIRSTONE','CS FIRSTONE']).eq('month', month);
+  if(error){ return null; }
+  var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
+  data.forEach(function(row){
+    var o = rowToObj(PAYROLL_FIELD_MAP, row);
+    var emp = employees.find(function(e){ return e.id===o.employeeId; });
+    if(!emp || emp.noBenefits) return; // 人头不算实际成本
+    var isHourly = emp.employeeType==='兼职';
+    var built = isHourly ? {
+      hourlyRate: (o.hourlyRate!==undefined && o.hourlyRate!==null) ? o.hourlyRate : (emp.hourlyRate||0),
+      hours: o.hours||0,
+      mcClaim: mcAmountForMonth(emp.id, month)
+    } : {
+      basicSalary: (o.basicSalary!==undefined && o.basicSalary!==null) ? o.basicSalary : emp.basicSalary,
+      allowance: o.allowance||0, phDays: o.phDays||0, otHours: o.otHours||0,
+      otAmountOverride: (o.otAmountOverride!==undefined && o.otAmountOverride!==null) ? o.otAmountOverride : null,
+      teamBonus: o.teamBonus||0, commissionSharing: o.commissionSharing||0,
+      bonus: o.bonus||0, otherAdjustment: o.otherAdjustment||0,
+      employerEpfSocso: o.employerEpfSocso||0,
+      mcClaim: mcAmountForMonth(emp.id, month),
+      unpaidDays: unpaidLeaveDaysForMonth(emp.id, month)
+    };
+    var cost = totalCost(built, isHourly);
+    var alloc = emp.costBranch || emp.company;
+    if(alloc==='split'){
+      totals['FIRSTONE'] += cost/2;
+      totals['CS FIRSTONE'] += cost/2;
+    } else if(totals[alloc]!==undefined){
+      totals[alloc] += cost;
+    }
+  });
+  return { firstone: round2(totals['FIRSTONE']), cs: round2(totals['CS FIRSTONE']) };
+}
+
+async function updateRealCostBox(){
+  var company = document.getElementById('pay-company').value;
+  var month = document.getElementById('pay-month').value;
+  var box = document.getElementById('real-cost-box');
+  if(!month || (company!=='FIRSTONE' && company!=='CS FIRSTONE')){ box.style.display = 'none'; return; }
+  var result = await computeRealBranchCost(month);
+  if(!result) return;
+  document.getElementById('real-cost-firstone').textContent = fmt(result.firstone);
+  document.getElementById('real-cost-cs').textContent = fmt(result.cs);
+  box.style.display = '';
 }
 
 function phAmount(row){ return round2(row.basicSalary/26 * (Number(row.phDays)||0)); }
@@ -412,5 +462,6 @@ async function savePayroll(){
   if(error){ document.getElementById('pay-msg').textContent = '保存失败:' + error.message; return; }
   document.getElementById('pay-msg').textContent = '已保存 ' + new Date().toLocaleTimeString();
   setTimeout(function(){ document.getElementById('pay-msg').textContent=''; }, 2500);
+  updateRealCostBox();
 }
 var PAYROLL_FIELDS_MONTHLY = ['basicSalary','allowance','phDays','otHours','otAmountOverride','teamBonus','commissionSharing','bonus','otherAdjustment','mistakeAmount','epfSocso','pcb','employerEpfSocso'];
