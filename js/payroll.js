@@ -128,30 +128,67 @@ async function computeRealBranchCost(month){
     };
     var cost = round2(totalCost(built, isHourly));
     var name = emp.nameEn||emp.nameCn||'(未命名)';
-    var unsavedTag = hasSaved ? '' : ' · 这个月还没保存,先用员工资料预设值';
+    var unsavedNote = hasSaved ? '' : '这个月还没保存,先用员工资料预设值';
+    var base = { name: name, group: groupLabel(emp), reg: emp.company };
     if(alloc==='split'){
       var half = round2(cost/2);
+      var splitNote = ['两间平分(总成本 '+fmt(cost)+')', unsavedNote].filter(Boolean).join(' · ');
       totals['FIRSTONE'] += half;
       totals['CS FIRSTONE'] += half;
-      breakdown['FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')'+unsavedTag, amount: half });
-      breakdown['CS FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')'+unsavedTag, amount: half });
+      breakdown['FIRSTONE'].push(Object.assign({}, base, { note: splitNote, amount: half }));
+      breakdown['CS FIRSTONE'].push(Object.assign({}, base, { note: splitNote, amount: half }));
     } else {
       totals[alloc] += cost;
-      var note = alloc===emp.company ? '登记'+emp.company : '登记'+emp.company+',成本改算在'+alloc;
-      breakdown[alloc].push({ name: name, note: note+unsavedTag, amount: cost });
+      var note = [alloc===emp.company ? '' : '成本改算在'+alloc, unsavedNote].filter(Boolean).join(' · ');
+      breakdown[alloc].push(Object.assign({}, base, { note: note, amount: cost }));
     }
   });
-  ['FIRSTONE','CS FIRSTONE'].forEach(function(b){ breakdown[b].sort(function(a,b2){ return b2.amount-a.amount; }); });
   return { firstone: round2(totals['FIRSTONE']), cs: round2(totals['CS FIRSTONE']), breakdown: breakdown };
 }
 
-function realCostBreakdownHtml(label, list, total){
-  var rows = list.map(function(r){
-    return '<tr><td style="padding:3px 8px 3px 0;">'+esc(r.name)+'</td>'
-      + '<td style="padding:3px 8px;color:var(--text-secondary);font-size:11px;">'+esc(r.note)+'</td>'
-      + '<td style="padding:3px 0;text-align:right;font-weight:500;white-space:nowrap;">'+fmt(r.amount)+'</td></tr>';
+// 明细照薪水计算表的分类:本地有Payslip → 本地无Payslip → 尼泊尔 → 兼职 → 缅甸,组内按名字A-Z编号。
+// 登记在另一间公司、成本才算过来(或平分过来)的员工,放在后面单独几组,组名后面标登记的公司。
+var BREAKDOWN_GROUP_ORDER = ['本地员工 - 有 Payslip', '本地员工 - 无 Payslip', '尼泊尔员工', '兼职 Part-time (时薪)', '缅甸员工'];
+function breakdownGroupRank(g){
+  var idx = BREAKDOWN_GROUP_ORDER.indexOf(g);
+  return idx>-1 ? idx : BREAKDOWN_GROUP_ORDER.length;
+}
+
+function realCostBreakdownHtml(branch, list, total){
+  var buckets = {};
+  var bucketOrder = [];
+  list.forEach(function(r){
+    var cross = r.reg!==branch;
+    var key = (cross ? '1|'+r.reg : '0|') + '|' + r.group;
+    if(!buckets[key]){
+      buckets[key] = { cross: cross, reg: r.reg, group: r.group, items: [] };
+      bucketOrder.push(key);
+    }
+    buckets[key].items.push(r);
+  });
+  bucketOrder.sort(function(a,b){
+    var ba = buckets[a], bb = buckets[b];
+    if(ba.cross!==bb.cross) return ba.cross ? 1 : -1;
+    if(ba.cross && ba.reg!==bb.reg) return ba.reg.localeCompare(bb.reg);
+    return breakdownGroupRank(ba.group) - breakdownGroupRank(bb.group);
+  });
+
+  var rows = bucketOrder.map(function(key){
+    var b = buckets[key];
+    b.items.sort(function(x,y){ return (x.name||'').localeCompare(y.name||''); });
+    var subtotal = round2(b.items.reduce(function(s,r){ return s + r.amount; }, 0));
+    var title = b.group + (b.cross ? ' ('+b.reg+')' : '');
+    var html = '<tr><td colspan="3" style="padding:8px 0 3px;font-weight:600;border-bottom:1px solid var(--border);">'
+      + esc(title)+' <span style="font-weight:400;color:var(--text-muted);">('+b.items.length+'人)</span>'
+      + ' <span style="float:right;font-weight:600;color:var(--text-secondary);">'+fmt(subtotal)+'</span></td></tr>';
+    b.items.forEach(function(r, i){
+      html += '<tr><td style="padding:3px 8px 3px 0;white-space:nowrap;">'+(i+1)+'. '+esc(r.name)+'</td>'
+        + '<td style="padding:3px 8px;color:var(--text-secondary);font-size:11px;">'+esc(r.note)+'</td>'
+        + '<td style="padding:3px 0;text-align:right;font-weight:500;white-space:nowrap;">'+fmt(r.amount)+'</td></tr>';
+    });
+    return html;
   }).join('');
-  return '<details style="flex:1;min-width:260px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">'+esc(label)+' 明细('+list.length+'人)▾</summary>'
+  return '<details style="flex:1;min-width:260px;"><summary style="cursor:pointer;font-size:13px;font-weight:600;">'+esc(branch)+' 明细('+list.length+'人)▾</summary>'
     + '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;">'+rows+'</table>'
     + '<p style="text-align:right;font-weight:700;font-size:13px;margin:6px 0 0;border-top:1px solid var(--border);padding-top:4px;">合计 '+fmt(total)+'</p>'
     + '</details>';
