@@ -86,19 +86,31 @@ async function loadPayroll(){
 }
 
 // FIRSTONE / CS FIRSTONE 实际成本:不是按登记在哪间公司算,是按员工资料里设的「实际成本归属」算
-// (跟登记公司一样 / 强制算某一间 / 两间平分),人头员工(无福利)不计入。以已保存的 payroll_records 为准。
+// (跟登记公司一样 / 强制算某一间 / 两间平分),人头员工(无福利)不计入。
+// 以「这个月该出现在薪水计算的员工」为准(跟薪水计算表同一套判断):存过档的用已保存的数字,
+// 还没存过档的(例如存档之后才新增的员工)就用员工资料的底薪/津贴当预设值,不会漏掉。
 // 要查全部公司(含TONGPOPO),因为TONGPOPO员工也可能被设定成本要算进FIRSTONE/CS FIRSTONE。
 async function computeRealBranchCost(month){
   var { data, error } = await sb.from('payroll_records').select('*').eq('month', month);
   if(error){ return null; }
-  var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
-  var breakdown = { 'FIRSTONE': [], 'CS FIRSTONE': [] };
+  var savedByEmp = {};
   data.forEach(function(row){
     var o = rowToObj(PAYROLL_FIELD_MAP, row);
-    var emp = employees.find(function(e){ return e.id===o.employeeId; });
-    if(!emp || emp.noBenefits) return; // 人头不算实际成本
-    // 旧月份存的记录,如果员工现在已经离职/换公司/那个月还没入职,不该再算进来(库里可能留着历史资料)
-    if(!isEmployeeActiveForCompanyMonth(emp, row.company, month)) return;
+    o._savedCompany = row.company;
+    savedByEmp[o.employeeId] = o;
+  });
+  var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
+  var breakdown = { 'FIRSTONE': [], 'CS FIRSTONE': [] };
+  employees.forEach(function(emp){
+    if(emp.noBenefits) return; // 人头不算实际成本
+    var alloc = emp.costBranch || emp.company;
+    if(alloc!=='split' && totals[alloc]===undefined) return; // 成本不归FIRSTONE/CS FIRSTONE的(例如TONGPOPO没设归属),跳过
+    // 这个月他还没入职/已经离职/公司不符 → 不该出现,跟薪水计算表一致
+    if(!isEmployeeActiveForCompanyMonth(emp, emp.company, month)) return;
+    var saved = savedByEmp[emp.id];
+    // 旧记录如果是在别的公司名下存的(员工后来换过公司),薪水计算表也不会读它,这里一样当没存过
+    var hasSaved = !!saved && saved._savedCompany===emp.company;
+    var o = hasSaved ? saved : {};
     var isHourly = emp.employeeType==='兼职';
     var built = isHourly ? {
       hourlyRate: (o.hourlyRate!==undefined && o.hourlyRate!==null) ? o.hourlyRate : (emp.hourlyRate||0),
@@ -106,7 +118,7 @@ async function computeRealBranchCost(month){
       mcClaim: mcAmountForMonth(emp.id, month)
     } : {
       basicSalary: (o.basicSalary!==undefined && o.basicSalary!==null) ? o.basicSalary : emp.basicSalary,
-      allowance: o.allowance||0, phDays: o.phDays||0, otHours: o.otHours||0,
+      allowance: hasSaved ? (o.allowance||0) : (emp.allowance||0), phDays: o.phDays||0, otHours: o.otHours||0,
       otAmountOverride: (o.otAmountOverride!==undefined && o.otAmountOverride!==null) ? o.otAmountOverride : null,
       teamBonus: o.teamBonus||0, commissionSharing: o.commissionSharing||0,
       bonus: o.bonus||0, otherAdjustment: o.otherAdjustment||0,
@@ -116,17 +128,17 @@ async function computeRealBranchCost(month){
     };
     var cost = round2(totalCost(built, isHourly));
     var name = emp.nameEn||emp.nameCn||'(未命名)';
-    var alloc = emp.costBranch || emp.company;
+    var unsavedTag = hasSaved ? '' : ' · 这个月还没保存,先用员工资料预设值';
     if(alloc==='split'){
       var half = round2(cost/2);
       totals['FIRSTONE'] += half;
       totals['CS FIRSTONE'] += half;
-      breakdown['FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')', amount: half });
-      breakdown['CS FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')', amount: half });
-    } else if(totals[alloc]!==undefined){
+      breakdown['FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')'+unsavedTag, amount: half });
+      breakdown['CS FIRSTONE'].push({ name: name, note: '登记'+emp.company+' · 两间平分(总成本 '+fmt(cost)+')'+unsavedTag, amount: half });
+    } else {
       totals[alloc] += cost;
       var note = alloc===emp.company ? '登记'+emp.company : '登记'+emp.company+',成本改算在'+alloc;
-      breakdown[alloc].push({ name: name, note: note, amount: cost });
+      breakdown[alloc].push({ name: name, note: note+unsavedTag, amount: cost });
     }
   });
   ['FIRSTONE','CS FIRSTONE'].forEach(function(b){ breakdown[b].sort(function(a,b2){ return b2.amount-a.amount; }); });
