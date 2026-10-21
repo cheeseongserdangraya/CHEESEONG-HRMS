@@ -30,6 +30,25 @@ function mcAmountForMonth(employeeId, month){
     .reduce(function(s,c){ return s + c.claimAmount; }, 0));
 }
 
+// 某个月用月薪还是时薪算,要看「那个月存档的样子」,不能只看员工现在的类型——
+// 不然员工从兼职转正式(或反过来)之后,之前存的旧月份整个会跳成另一种表格。
+// 兼职存档:有时数/时薪、没有底薪;月薪存档:一定有底薪、时数是0。
+// 没存过、或看不出来的旧资料,才用员工现在的类型当预设。
+function savedRowIsHourly(s){
+  if(!s) return null;
+  if(s.basicSalary!==undefined && s.basicSalary!==null) return false;
+  if((Number(s.hours)||0) > 0) return true;
+  if(s.hourlyRate!==undefined && s.hourlyRate!==null) return true;
+  return null;
+}
+function isHourlyForMonth(e, s){
+  var fromSaved = savedRowIsHourly(s);
+  return fromSaved!==null ? fromSaved : e.employeeType==='兼职';
+}
+function groupLabelForMonth(e, isHourly){
+  return groupLabel(Object.assign({}, e, { employeeType: isHourly ? '兼职' : '正式员工' }));
+}
+
 async function loadPayroll(){
   var company = document.getElementById('pay-company').value;
   var month = document.getElementById('pay-month').value;
@@ -49,17 +68,18 @@ async function loadPayroll(){
   active.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
   payrollGroups = {};
   active.forEach(function(e){
-    var g = groupLabel(e);
-    if(!payrollGroups[g]) payrollGroups[g] = { isHourly: e.employeeType==='兼职', rows: [] };
     var s = saved[e.id];
     var hasSaved = !!s;
+    var isHourly = isHourlyForMonth(e, s);
+    var g = groupLabelForMonth(e, isHourly);
+    if(!payrollGroups[g]) payrollGroups[g] = { isHourly: isHourly, rows: [] };
     s = s || {};
     var mcClaim = mcAmountForMonth(e.id, month);
     var loanRepay = loanRepayForMonth(e.id, month);
     var otDaysLogged = otCountForMonth(e.id, month);
     var lateCount = lateCountForMonth(e.id, month);
     var unpaidDays = unpaidLeaveDaysForMonth(e.id, month);
-    if(e.employeeType==='兼职'){
+    if(isHourly){
       payrollGroups[g].rows.push({
         employeeId: e.id, name: e.nameEn,
         hourlyRate: (s.hourlyRate!==undefined && s.hourlyRate!==null) ? s.hourlyRate : (e.hourlyRate||0),
@@ -111,7 +131,7 @@ async function computeRealBranchCost(month){
     // 旧记录如果是在别的公司名下存的(员工后来换过公司),薪水计算表也不会读它,这里一样当没存过
     var hasSaved = !!saved && saved._savedCompany===emp.company;
     var o = hasSaved ? saved : {};
-    var isHourly = emp.employeeType==='兼职';
+    var isHourly = isHourlyForMonth(emp, hasSaved ? saved : null);
     var built = isHourly ? {
       hourlyRate: (o.hourlyRate!==undefined && o.hourlyRate!==null) ? o.hourlyRate : (emp.hourlyRate||0),
       hours: o.hours||0,
@@ -129,7 +149,7 @@ async function computeRealBranchCost(month){
     var cost = round2(totalCost(built, isHourly));
     var name = emp.nameEn||emp.nameCn||'(未命名)';
     var unsavedNote = hasSaved ? '' : '这个月还没保存,先用员工资料预设值';
-    var base = { name: name, group: groupLabel(emp), reg: emp.company };
+    var base = { name: name, group: groupLabelForMonth(emp, isHourly), reg: emp.company };
     if(alloc==='split'){
       var half = round2(cost/2);
       var splitNote = ['两间平分(总成本 '+fmt(cost)+')', unsavedNote].filter(Boolean).join(' · ');
@@ -527,6 +547,7 @@ async function savePayroll(){
       var o = { employeeId: r.employeeId, company: company, month: month, notes: r.notes||'' };
       if(group.isHourly){
         o.hours = r.hours; o.hourlyRate = r.hourlyRate; o.allowance = 0; o.phDays = 0; o.otHours = 0; o.teamBonus = 0; o.commissionSharing = 0; o.bonus = 0; o.epfSocso = 0; o.pcb = 0; o.employerEpfSocso = 0;
+        o.basicSalary = null; // 兼职存档不留底薪,之后才分得出这个月是时薪还是月薪(见 savedRowIsHourly)
       } else {
         PAYROLL_FIELDS_MONTHLY.forEach(function(f){ o[f] = r[f]; });
         o.hours = 0;
