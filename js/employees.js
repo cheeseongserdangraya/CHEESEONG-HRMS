@@ -515,7 +515,9 @@ async function submitForm(){
     data.id = editingId;
     data.status = employees[idx].status;
     employees[idx] = Object.assign({}, employees[idx], data); // 保留没在表单里的栏位(例如离职日期)
-    document.getElementById('emp-msg').textContent = '已更新';
+    document.getElementById('emp-msg').textContent = changed.length
+      ? '已更新,并记录了变更(生效日 '+d+',共 '+changed.length+' 项)'
+      : '已更新。这次没有检查到要记生效日的变动(底薪/津贴/时薪/员工类型/公司/成本归属/部门/职位),所以没有问生效日。';
     stopEdit();
   } else {
     data.status = '在职';
@@ -526,6 +528,6 @@ async function submitForm(){
     clearForm();
     document.getElementById('emp-msg').textContent = '已新增';
   }
-  setTimeout(function(){ document.getElementById('emp-msg').textContent=''; }, 1500);
+  setTimeout(function(){ document.getElementById('emp-msg').textContent=''; }, 8000);
   renderEmpList();
 }
