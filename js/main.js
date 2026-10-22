@@ -44,6 +44,7 @@ function switchTab(tab){
   // 一次性载入所有表(公司规模小,全部载入内存跟原本 localStorage 版行为一致)
   await Promise.all([
     fetchEmployees(),
+    fetchEmployeeChanges(),
     fetchMcClaims(),
     fetchLoanRecords(),
     fetchAttendanceRecords(),

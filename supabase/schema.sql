@@ -247,6 +247,22 @@ create table public.ph_records (
 );
 
 -- ============================================================
+-- 10. employee_changes 员工资料变更记录(生效日)
+--     薪水/员工类型/公司/成本归属/部门/职位 改的时候会问几号开始生效,
+--     薪水计算按月份查「那个月该用的值」。每个栏位第一次变更时会多存一笔
+--     effective_date = 1900-01-01 的起始值(改之前的旧值)。
+-- ============================================================
+create table public.employee_changes (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  field text not null,              -- 'employeeType','basicSalary','allowance','hourlyRate','company','costBranch','department','position'
+  effective_date date not null,     -- 从这天所在的月份起套用;1900-01-01 = 起始值
+  value text,                       -- 一律存成文字,读出来再按栏位转数字
+  created_at timestamptz not null default now(),
+  unique (employee_id, field, effective_date)
+);
+
+-- ============================================================
 -- RLS:所有业务表一律 admin 全权限、boss 只读
 -- ============================================================
 do $$
@@ -255,7 +271,7 @@ declare
 begin
   foreach t in array array[
     'employees','payroll_records','mc_claims','loan_records',
-    'attendance_late','attendance_ot','leave_records','leave_carry','ph_records'
+    'attendance_late','attendance_ot','leave_records','leave_carry','ph_records','employee_changes'
   ]
   loop
     execute format('alter table public.%I enable row level security;', t);

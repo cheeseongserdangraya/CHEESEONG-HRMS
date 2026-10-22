@@ -41,7 +41,9 @@ var TABLES = [
   { key:'attendance_late', label:'5. 迟到记录 attendance_late', numeric:[], date:['date'] },
   { key:'attendance_ot', label:'6. OT记录 attendance_ot', numeric:[], date:['date'] },
   { key:'leave_records', label:'7. 请假记录 leave_records', numeric:['days'], date:['start_date','end_date'] },
-  { key:'leave_carry', label:'8. 年假结转 leave_carry', numeric:['days'], date:[] }
+  { key:'leave_carry', label:'8. 年假结转 leave_carry', numeric:['days'], date:[] },
+  { key:'ph_records', label:'9. PH假期记录 ph_records', numeric:['days'], date:[] },
+  { key:'employee_changes', label:'10. 员工变更记录 employee_changes(要在员工资料之后还原)', numeric:[], date:['effective_date'] }
 ];
 
 (async function(){

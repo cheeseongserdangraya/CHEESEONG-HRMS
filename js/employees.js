@@ -9,6 +9,153 @@ async function fetchEmployees(){
   employees = data.map(function(row){ return rowToObj(EMP_FIELD_MAP, row); });
 }
 
+// ---- 员工资料变更记录(生效日) ----
+// 薪水相关/公司/职位这些栏位,改的时候会问「几号开始生效」,记在 employee_changes 表。
+// 薪水计算按月份去查「那个月该用的值」(empAtMonth),生效日所在的月整个月用新的,之前的月份完全不动。
+// 每个栏位第一次有变更时,会同时存一笔 1900-01-01 的「起始值」(改之前的旧值),所以任何月份都查得到值。
+var TRACKED_FIELDS = {
+  employeeType:'员工类型', basicSalary:'底薪', allowance:'津贴', hourlyRate:'时薪',
+  company:'公司', costBranch:'实际成本归属', department:'部门', position:'职位'
+};
+var TRACKED_NUMERIC = { basicSalary:true, allowance:true, hourlyRate:true };
+var CHANGE_BASELINE_DATE = '1900-01-01';
+var employeeChanges = [];       // employee_changes 全部记录
+var changesByEmp = {};          // employeeId -> field -> [{id,date,value}](按日期从早到晚)
+var employeeChangesReady = false; // 变更记录表读取成功才算准备好(还没建表的话,不让改薪水,免得没留历史)
+
+function encChangeValue(v){ return (v===null || v===undefined) ? '' : String(v); }
+function decChangeValue(field, v){ return TRACKED_NUMERIC[field] ? (Number(v)||0) : (v||''); }
+
+function buildChangeIndex(){
+  changesByEmp = {};
+  employeeChanges.forEach(function(c){
+    var byField = changesByEmp[c.employeeId] || (changesByEmp[c.employeeId] = {});
+    (byField[c.field] || (byField[c.field] = [])).push({ id:c.id, date:c.effectiveDate, value:decChangeValue(c.field, c.value) });
+  });
+  Object.keys(changesByEmp).forEach(function(id){
+    Object.keys(changesByEmp[id]).forEach(function(f){
+      changesByEmp[id][f].sort(function(a,b){ return a.date.localeCompare(b.date); });
+    });
+  });
+}
+
+async function fetchEmployeeChanges(){
+  var { data, error } = await sb.from('employee_changes').select('*');
+  if(error){
+    console.warn('读取员工变更记录失败(可能还没建 employee_changes 表):' + error.message);
+    employeeChangesReady = false;
+    return;
+  }
+  employeeChanges = data.map(function(row){ return rowToObj(CHANGE_FIELD_MAP, row); });
+  buildChangeIndex();
+  employeeChangesReady = true;
+}
+
+// 某个员工的某个栏位,在 month('YYYY-MM')那个月该用什么值
+function trackedValueAt(e, field, month){
+  var rows = changesByEmp[e.id] && changesByEmp[e.id][field];
+  if(!rows || rows.length===0) return e[field];
+  var pick = null;
+  rows.forEach(function(r){ if(r.date.slice(0,7) <= month) pick = r; });
+  return pick ? pick.value : rows[0].value;
+}
+
+// 回传「这个月的这个员工」:有变更记录的栏位换成那个月该用的值,其他照旧
+function empAtMonth(e, month){
+  var byField = changesByEmp[e.id];
+  if(!byField) return e;
+  var copy = Object.assign({}, e);
+  Object.keys(byField).forEach(function(f){ copy[f] = trackedValueAt(e, f, month); });
+  return copy;
+}
+
+function normTracked(field, v){ return TRACKED_NUMERIC[field] ? (Number(v)||0) : (v||''); }
+function showChangeVal(field, v){
+  if(field==='costBranch') return v==='split' ? '平分' : (v || '跟登记公司一样');
+  if(TRACKED_NUMERIC[field]) return fmt(v);
+  return v || '(空)';
+}
+
+// 改了哪些要记生效日的栏位
+function detectTrackedChanges(oldEmp, data){
+  var out = [];
+  Object.keys(TRACKED_FIELDS).forEach(function(f){
+    var a = normTracked(f, oldEmp[f]), b = normTracked(f, data[f]);
+    if(a !== b) out.push({ field:f, oldValue:a, newValue:b });
+  });
+  return out;
+}
+
+// 把变更写进 employee_changes,并回传「各栏位现在(最晚生效日)的值」,让员工资料那行存最新的
+async function recordEmployeeChanges(empId, changed, effectiveDate){
+  var upserts = [];
+  changed.forEach(function(c){
+    var existing = (changesByEmp[empId] && changesByEmp[empId][c.field]) || [];
+    if(existing.length===0){
+      upserts.push({ employeeId:empId, field:c.field, effectiveDate:CHANGE_BASELINE_DATE, value:encChangeValue(c.oldValue) });
+    }
+    upserts.push({ employeeId:empId, field:c.field, effectiveDate:effectiveDate, value:encChangeValue(c.newValue) });
+  });
+  var rows = upserts.map(function(r){ return objToRow(CHANGE_FIELD_MAP, r); });
+  var { data, error } = await sb.from('employee_changes').upsert(rows, { onConflict:'employee_id,field,effective_date' }).select();
+  if(error) return { error: error };
+  data.forEach(function(row){
+    var o = rowToObj(CHANGE_FIELD_MAP, row);
+    employeeChanges = employeeChanges.filter(function(c){ return !(c.employeeId===o.employeeId && c.field===o.field && c.effectiveDate===o.effectiveDate); });
+    employeeChanges.push(o);
+  });
+  buildChangeIndex();
+  var latest = {};
+  changed.forEach(function(c){
+    var list = changesByEmp[empId][c.field];
+    latest[c.field] = list[list.length-1].value;
+  });
+  return { latest: latest };
+}
+
+function changeHistoryHtml(e){
+  var byField = changesByEmp[e.id];
+  if(!byField) return '';
+  var items = [];
+  Object.keys(byField).forEach(function(f){
+    var rows = byField[f];
+    for(var i=1; i<rows.length; i++){ items.push({ field:f, row:rows[i], prev:rows[i-1].value }); }
+  });
+  if(items.length===0) return '';
+  items.sort(function(a,b){ return b.row.date.localeCompare(a.row.date); });
+  var html = '<p style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:12px 0 4px;">变更记录(从生效日所在的月份起套用新的,之前的月份不变)</p>'
+    + '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  items.forEach(function(it){
+    html += '<tr style="border-top:1px solid var(--border);">'
+      + '<td style="padding:4px 6px 4px 0;white-space:nowrap;">'+esc(it.row.date)+' 起</td>'
+      + '<td style="padding:4px 6px;">'+esc(TRACKED_FIELDS[it.field])+'</td>'
+      + '<td style="padding:4px 6px;color:var(--text-secondary);">'+esc(showChangeVal(it.field, it.prev))+' → <b style="color:var(--text);">'+esc(showChangeVal(it.field, it.row.value))+'</b></td>'
+      + '<td style="padding:4px 0;text-align:right;">'+(isAdmin() ? '<button class="secondary small" onclick="event.stopPropagation();delEmpChange(\''+e.id+'\',\''+it.row.id+'\',\''+it.field+'\')">删除</button>' : '')+'</td>'
+      + '</tr>';
+  });
+  return html + '</table>';
+}
+
+async function delEmpChange(empId, changeId, field){
+  if(!isAdmin()) return;
+  if(!confirm('确定删除这条变更记录吗?\n删除后,从那个生效日起的月份会改回用前一个数值。已经保存过的月份(底薪等已锁在那个月的)不会自动改。')) return;
+  var { error } = await sb.from('employee_changes').delete().eq('id', changeId);
+  if(error){ alert('删除失败:' + error.message); return; }
+  employeeChanges = employeeChanges.filter(function(c){ return c.id!==changeId; });
+  buildChangeIndex();
+  // 员工资料那行存的是「最晚生效日」的值,删完要跟着更新
+  var list = changesByEmp[empId] && changesByEmp[empId][field];
+  var e = employees.find(function(x){ return x.id===empId; });
+  if(list && list.length && e){
+    var latestVal = list[list.length-1].value;
+    var patch = {}; patch[field] = latestVal;
+    var { error: err2 } = await sb.from('employees').update(objToRow(EMP_FIELD_MAP, patch)).eq('id', empId);
+    if(err2){ alert('变更记录已删除,但更新员工资料失败:' + err2.message); }
+    else { e[field] = latestVal; }
+  }
+  renderEmpList();
+}
+
 function toggleSalaryFields(){
   var isHourly = document.getElementById('f-emptype').value === '兼职';
   document.getElementById('salary-fields-monthly').style.display = isHourly ? 'none' : 'grid';
@@ -138,7 +285,8 @@ function renderEmpList(){
         + row('紧急联络电话', e.emergencyNumber)
         + row('银行名称', e.bankName) + row('户口持有人', e.accountHolder) + row('银行户口号码', e.bankAccountNumber)
         + row('KWSP 号码', e.kwspNumber) + row('PCB 号码', e.pcbNumber)
-        + '</table>';
+        + '</table>'
+        + changeHistoryHtml(e);
       if(isAdmin()){
         html += '<div class="detail-actions">'
         + '<button class="secondary small" onclick="event.stopPropagation();editEmp(\''+e.id+'\')">编辑</button>'
@@ -236,13 +384,34 @@ async function submitForm(){
   data.noBenefits = document.getElementById('f-nobenefits').checked;
 
   if(editingId){
+    var idx = employees.findIndex(function(e){ return e.id===editingId; });
+    // 改了薪水/公司/职位这些要问生效日:从那天所在的月份起才套用新的,之前的月份不动
+    var changed = detectTrackedChanges(employees[idx], data);
+    if(changed.length){
+      if(!employeeChangesReady){
+        document.getElementById('emp-msg').textContent = '还不能改这些资料:员工变更记录表还没建好(请先去 Supabase 执行建表 SQL),不然改了就没有历史记录。';
+        return;
+      }
+      var summary = changed.map(function(c){
+        return '· '+TRACKED_FIELDS[c.field]+':'+showChangeVal(c.field, c.oldValue)+' → '+showChangeVal(c.field, c.newValue);
+      }).join('\n');
+      var d = prompt('这次改了:\n'+summary+'\n\n从几号开始生效?(格式 YYYY-MM-DD)\n生效日所在的那个月,整个月都会用新的;之前的月份不会变。', todayStr().slice(0,8)+'01');
+      if(d===null) return; // 按取消就不保存
+      d = d.trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d).getTime())){
+        document.getElementById('emp-msg').textContent = '日期格式不对,请用 YYYY-MM-DD,例如 2026-10-01。没有保存。';
+        return;
+      }
+      var rec = await recordEmployeeChanges(editingId, changed, d);
+      if(rec.error){ document.getElementById('emp-msg').textContent = '保存变更记录失败:' + rec.error.message; return; }
+      Object.keys(rec.latest).forEach(function(f){ data[f] = rec.latest[f]; }); // 员工资料那行存「最晚生效日」的值
+    }
     var row = objToRow(EMP_FIELD_MAP, data);
     var { error } = await sb.from('employees').update(row).eq('id', editingId);
     if(error){ document.getElementById('emp-msg').textContent = '保存失败:' + error.message; return; }
-    var idx = employees.findIndex(function(e){ return e.id===editingId; });
     data.id = editingId;
     data.status = employees[idx].status;
-    employees[idx] = data;
+    employees[idx] = Object.assign({}, employees[idx], data); // 保留没在表单里的栏位(例如离职日期)
     document.getElementById('emp-msg').textContent = '已更新';
     stopEdit();
   } else {

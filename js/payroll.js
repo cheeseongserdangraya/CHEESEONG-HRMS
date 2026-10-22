@@ -64,7 +64,9 @@ async function loadPayroll(){
     payrollSavedRowIds[o.employeeId] = o.id;
   });
 
-  var active = employees.filter(function(e){ return isEmployeeActiveForCompanyMonth(e, company, month); });
+  // 每个员工用「这个月」该有的资料(底薪/类型/公司/职位等按生效日套用),旧月份不会被之后的调薪影响
+  var active = employees.map(function(e){ return empAtMonth(e, month); })
+    .filter(function(e){ return isEmployeeActiveForCompanyMonth(e, company, month); });
   active.sort(function(a,b){ return (a.nameEn||'').localeCompare(b.nameEn||''); });
   payrollGroups = {};
   active.forEach(function(e){
@@ -121,7 +123,8 @@ async function computeRealBranchCost(month){
   });
   var totals = { 'FIRSTONE': 0, 'CS FIRSTONE': 0 };
   var breakdown = { 'FIRSTONE': [], 'CS FIRSTONE': [] };
-  employees.forEach(function(emp){
+  employees.forEach(function(rawEmp){
+    var emp = empAtMonth(rawEmp, month); // 用这个月该有的资料(底薪/类型/公司/成本归属按生效日套用)
     if(emp.noBenefits) return; // 人头不算实际成本
     var alloc = emp.costBranch || emp.company;
     if(alloc!=='split' && totals[alloc]===undefined) return; // 成本不归FIRSTONE/CS FIRSTONE的(例如TONGPOPO没设归属),跳过

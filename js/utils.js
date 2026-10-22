@@ -48,6 +48,10 @@ var PAYROLL_FIELD_MAP = {
   hours:'hours', hourlyRate:'hourly_rate', notes:'notes'
 };
 
+var CHANGE_FIELD_MAP = {
+  employeeId:'employee_id', field:'field', effectiveDate:'effective_date', value:'value'
+};
+
 var MC_FIELD_MAP = {
   employeeId:'employee_id', company:'company', date:'date',
   billAmount:'bill_amount', claimAmount:'claim_amount', clinic:'clinic',
