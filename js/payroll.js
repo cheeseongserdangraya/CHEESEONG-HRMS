@@ -41,7 +41,10 @@ function savedRowIsHourly(s){
   if(s.hourlyRate!==undefined && s.hourlyRate!==null) return true;
   return null;
 }
+// 员工有「员工类型」的生效日记录时,以生效日为准(e 这里已经是 empAtMonth 套好那个月的资料);
+// 没有记录的老资料,才看那个月存档的样子,再不行才用员工现在的类型。
 function isHourlyForMonth(e, s){
+  if(changesByEmp[e.id] && changesByEmp[e.id].employeeType) return e.employeeType==='兼职';
   var fromSaved = savedRowIsHourly(s);
   return fromSaved!==null ? fromSaved : e.employeeType==='兼职';
 }
