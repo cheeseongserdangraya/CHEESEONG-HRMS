@@ -156,6 +156,28 @@ async function delEmpChange(empId, changeId, field){
   renderEmpList();
 }
 
+// 页面里自己的小窗口问「几号开始生效」(比浏览器自带的 prompt 可靠,也能直接点日历选日期)
+// 回传日期字符串 YYYY-MM-DD,按取消回传 null
+function askEffectiveDate(summary, defaultDate){
+  return new Promise(function(resolve){
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = '<div style="background:var(--surface,#fff);color:var(--text,#222);border-radius:12px;padding:20px;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);">'
+      + '<p style="font-weight:700;font-size:15px;margin:0 0 8px;">从几号开始生效?</p>'
+      + '<p style="font-size:12px;color:var(--text-secondary,#666);margin:0 0 4px;">这次改了:</p>'
+      + '<div style="font-size:13px;margin:0 0 12px;white-space:pre-line;">'+esc(summary)+'</div>'
+      + '<input type="date" id="eff-date" value="'+esc(defaultDate)+'" style="width:100%;margin-bottom:8px;" />'
+      + '<p style="font-size:12px;color:var(--text-secondary,#666);margin:0 0 14px;">生效日所在的那个月,整个月都会用新的;之前的月份不会变。</p>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button type="button" class="secondary" id="eff-cancel">取消(不保存)</button>'
+      + '<button type="button" id="eff-ok">确定并保存</button></div></div>';
+    document.body.appendChild(overlay);
+    function close(v){ document.body.removeChild(overlay); resolve(v); }
+    overlay.querySelector('#eff-cancel').onclick = function(){ close(null); };
+    overlay.querySelector('#eff-ok').onclick = function(){ close(overlay.querySelector('#eff-date').value || ''); };
+  });
+}
+
 function toggleSalaryFields(){
   var isHourly = document.getElementById('f-emptype').value === '兼职';
   document.getElementById('salary-fields-monthly').style.display = isHourly ? 'none' : 'grid';
@@ -395,11 +417,10 @@ async function submitForm(){
       var summary = changed.map(function(c){
         return '· '+TRACKED_FIELDS[c.field]+':'+showChangeVal(c.field, c.oldValue)+' → '+showChangeVal(c.field, c.newValue);
       }).join('\n');
-      var d = prompt('这次改了:\n'+summary+'\n\n从几号开始生效?(格式 YYYY-MM-DD)\n生效日所在的那个月,整个月都会用新的;之前的月份不会变。', todayStr().slice(0,8)+'01');
-      if(d===null) return; // 按取消就不保存
-      d = d.trim();
+      var d = await askEffectiveDate(summary, todayStr().slice(0,8)+'01');
+      if(d===null){ document.getElementById('emp-msg').textContent = '已取消,没有保存。'; return; }
       if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d).getTime())){
-        document.getElementById('emp-msg').textContent = '日期格式不对,请用 YYYY-MM-DD,例如 2026-10-01。没有保存。';
+        document.getElementById('emp-msg').textContent = '没有选生效日期,没有保存。请再按一次保存,选好日期。';
         return;
       }
       var rec = await recordEmployeeChanges(editingId, changed, d);
