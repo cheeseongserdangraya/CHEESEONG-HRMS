@@ -39,16 +39,26 @@ function buildChangeIndex(){
   });
 }
 
+// 员工资料页面最上面那行小字,显示生效日功能有没有正常启用(出问题时一眼看得出原因)
+function setChangeStatus(ok, detail){
+  var el = document.getElementById('change-status');
+  if(!el) return;
+  el.textContent = ok ? '生效日功能:已启用(已读取 '+employeeChanges.length+' 条变更记录)' : '生效日功能:没有启用 — ' + detail;
+  el.style.color = ok ? 'var(--text-muted)' : 'var(--danger)';
+}
+
 async function fetchEmployeeChanges(){
   var { data, error } = await sb.from('employee_changes').select('*');
   if(error){
     console.warn('读取员工变更记录失败(可能还没建 employee_changes 表):' + error.message);
     employeeChangesReady = false;
+    setChangeStatus(false, error.message);
     return;
   }
   employeeChanges = data.map(function(row){ return rowToObj(CHANGE_FIELD_MAP, row); });
   buildChangeIndex();
   employeeChangesReady = true;
+  setChangeStatus(true);
 }
 
 // 某个员工的某个栏位,在 month('YYYY-MM')那个月该用什么值

@@ -37,6 +37,7 @@
   <div id="panel-emp">
     <div class="card" id="emp-form-card">
       <p class="section-label" id="form-title" style="font-size:15px;color:var(--text);font-weight:600;">新增员工</p>
+      <p id="change-status" style="font-size:11px;color:var(--text-muted);margin:-6px 0 10px;"></p>
 
       <p class="section-label">基本资料</p>
       <div class="grid">
@@ -460,16 +461,11 @@
   </div>
 </div>
 
-<script src="js/config.js"></script>
-<script src="js/supabaseClient.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/employees.js"></script>
-<script src="js/payroll.js"></script>
-<script src="js/mcClaims.js"></script>
-<script src="js/loans.js"></script>
-<script src="js/attendance.js"></script>
-<script src="js/leave.js"></script>
-<script src="js/phRecords.js"></script>
-<script src="js/main.js"></script>
+<script>
+// 程序文件每次打开都重新下载(网址后面带时间),避免浏览器/网页应用留着旧版本,改了东西却看不到
+['config','supabaseClient','utils','employees','payroll','mcClaims','loans','attendance','leave','phRecords','main'].forEach(function(n){
+  document.write('<script src="js/'+n+'.js?v='+Date.now()+'"><\/script>');
+});
+</script>
 </body>
 </html>
