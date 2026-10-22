@@ -178,6 +178,77 @@ function askEffectiveDate(summary, defaultDate){
   });
 }
 
+// 补记变更日期:员工资料已经是新的值了(例如在有「生效日」功能之前就改了),
+// 这里补上「从哪天起变成现在这样、之前是什么」,之前的月份就会照旧值算。
+function backfillControlHtml(field, cur){
+  var sel = function(opts){ return '<select data-bf="'+field+'" style="width:100%;">'+opts.map(function(o){ return '<option value="'+esc(o[0])+'">'+esc(o[1])+'</option>'; }).join('')+'</select>'; };
+  if(field==='employeeType') return sel([['','(没变)'],['兼职','兼职(时薪)'],['正式员工','正式员工(月薪)']]);
+  if(field==='company') return sel([['','(没变)'],['FIRSTONE','FIRSTONE'],['CS FIRSTONE','CS FIRSTONE'],['TONGPOPO','TONGPOPO']]);
+  if(field==='costBranch') return sel([['','(没变)'],['__same','跟登记公司一样'],['FIRSTONE','算在 FIRSTONE'],['CS FIRSTONE','算在 CS FIRSTONE'],['split','FIRSTONE/CS FIRSTONE 平分']]);
+  if(TRACKED_NUMERIC[field]) return '<input type="number" data-bf="'+field+'" placeholder="(没变就留空)" style="width:100%;" />';
+  return '<input type="text" data-bf="'+field+'" placeholder="(没变就留空)" style="width:100%;" />';
+}
+
+function askBackfill(e){
+  return new Promise(function(resolve){
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;';
+    var rows = Object.keys(TRACKED_FIELDS).map(function(f){
+      return '<tr><td style="padding:4px 8px 4px 0;white-space:nowrap;">'+esc(TRACKED_FIELDS[f])+'</td>'
+        + '<td style="padding:4px 8px;color:var(--text-secondary,#666);">'+esc(showChangeVal(f, e[f]))+'</td>'
+        + '<td style="padding:4px 0;">'+backfillControlHtml(f, e[f])+'</td></tr>';
+    }).join('');
+    overlay.innerHTML = '<div style="background:var(--surface,#fff);color:var(--text,#222);border-radius:12px;padding:20px;max-width:520px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.3);">'
+      + '<p style="font-weight:700;font-size:15px;margin:0 0 6px;">补记变更日期 - '+esc(e.nameEn||e.nameCn)+'</p>'
+      + '<p style="font-size:12px;color:var(--text-secondary,#666);margin:0 0 10px;">下面「现在」是员工资料里目前的值。哪一项是从某一天才变成现在这样的,就在右边填「改之前的旧值」,没变的留着不填。</p>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;"><tr style="color:var(--text-secondary,#666);font-size:12px;"><td>项目</td><td>现在</td><td>改之前的旧值</td></tr>'+rows+'</table>'
+      + '<label style="font-size:12px;">从哪一天起变成现在这样(这个日期所在的月份起用现在的值)</label>'
+      + '<input type="date" id="bf-date" value="'+esc(todayStr().slice(0,8)+'01')+'" style="width:100%;margin:4px 0 14px;" />'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button type="button" class="secondary" id="bf-cancel">取消</button>'
+      + '<button type="button" id="bf-ok">确定补记</button></div></div>';
+    document.body.appendChild(overlay);
+    function close(v){ document.body.removeChild(overlay); resolve(v); }
+    overlay.querySelector('#bf-cancel').onclick = function(){ close(null); };
+    overlay.querySelector('#bf-ok').onclick = function(){
+      var olds = {};
+      overlay.querySelectorAll('[data-bf]').forEach(function(el){ if(el.value!=='') olds[el.getAttribute('data-bf')] = el.value; });
+      close({ date: overlay.querySelector('#bf-date').value || '', olds: olds });
+    };
+  });
+}
+
+async function backfillEmpChange(empId){
+  if(!isAdmin()) return;
+  var e = employees.find(function(x){ return x.id===empId; });
+  if(!e) return;
+  if(!employeeChangesReady){ alert('员工变更记录表还没建好,请先去 Supabase 执行建表 SQL。'); return; }
+  var res = await askBackfill(e);
+  if(res===null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(res.date) || isNaN(new Date(res.date).getTime())){ alert('没有选日期,没有补记。'); return; }
+  var changed = [];
+  Object.keys(res.olds).forEach(function(f){
+    var oldVal = res.olds[f];
+    if(f==='costBranch' && oldVal==='__same') oldVal = '';
+    var a = normTracked(f, oldVal), b = normTracked(f, e[f]);
+    if(a !== b) changed.push({ field:f, oldValue:a, newValue:b });
+  });
+  if(changed.length===0){ alert('没有填任何跟「现在」不一样的旧值,没有补记。'); return; }
+  var rec = await recordEmployeeChanges(empId, changed, res.date);
+  if(rec.error){ alert('补记失败:' + rec.error.message); return; }
+  // 员工资料那行存「最晚生效日」的值,万一补记的日期不是最晚的,要同步
+  var patch = {}, needPatch = false;
+  Object.keys(rec.latest).forEach(function(f){
+    if(normTracked(f, rec.latest[f]) !== normTracked(f, e[f])){ patch[f] = rec.latest[f]; needPatch = true; }
+  });
+  if(needPatch){
+    var { error: err2 } = await sb.from('employees').update(objToRow(EMP_FIELD_MAP, patch)).eq('id', empId);
+    if(err2){ alert('补记已存,但更新员工资料失败:' + err2.message); }
+    else { Object.assign(e, patch); }
+  }
+  renderEmpList();
+}
+
 function toggleSalaryFields(){
   var isHourly = document.getElementById('f-emptype').value === '兼职';
   document.getElementById('salary-fields-monthly').style.display = isHourly ? 'none' : 'grid';
@@ -312,6 +383,7 @@ function renderEmpList(){
       if(isAdmin()){
         html += '<div class="detail-actions">'
         + '<button class="secondary small" onclick="event.stopPropagation();editEmp(\''+e.id+'\')">编辑</button>'
+        + '<button class="secondary small" onclick="event.stopPropagation();backfillEmpChange(\''+e.id+'\')">补记变更日期</button>'
         + '<button class="secondary small" onclick="event.stopPropagation();toggleStatus(\''+e.id+'\')">切换在职/离职</button>'
         + '<button class="secondary small" onclick="event.stopPropagation();delEmp(\''+e.id+'\')">删除</button>'
         + '</div>';
